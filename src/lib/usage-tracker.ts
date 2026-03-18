@@ -5,7 +5,11 @@
 
 import type { ChatCompletionResponse } from '~/services/copilot/create-chat-completions'
 import type { ResponsesResponse } from '~/services/copilot/create-responses'
-import { logUsage } from './usage-db'
+import { logUsage as dbLogUsage, type UsageLogEntry } from './usage-db'
+
+// Re-export for direct usage
+export const logUsage = dbLogUsage
+export type { UsageLogEntry }
 
 /**
  * Log usage from chat completion response

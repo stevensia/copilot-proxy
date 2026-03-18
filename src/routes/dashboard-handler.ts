@@ -38,19 +38,6 @@ function getClientIp(c: Context): string {
 }
 
 /**
- * Auth middleware
- */
-function requireAuth(c: Context, next: () => Promise<Response | void>): Response | Promise<Response | void> {
-  const token = getCookie(c, COOKIE_NAME)
-  
-  if (!token || !validateSession(token)) {
-    return c.json({ error: 'Unauthorized', code: 'AUTH_REQUIRED' }, 401)
-  }
-  
-  return next()
-}
-
-/**
  * Calculate 'since' date from hours parameter
  */
 function getSinceDate(hours: number | undefined): string | undefined {
@@ -67,7 +54,7 @@ export function registerDashboardRoutes(app: Hono): void {
   // Serve dashboard UI
   app.get('/dashboard', (c) => {
     const token = getCookie(c, COOKIE_NAME)
-    const isAuthenticated = token && validateSession(token)
+    const isAuthenticated = !!(token && validateSession(token))
     const needsSetup = !isPasswordSet()
     
     return c.html(dashboardHtml(isAuthenticated, needsSetup))
