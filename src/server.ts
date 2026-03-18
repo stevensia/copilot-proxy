@@ -9,6 +9,7 @@ import { modelRoutes } from './routes/models/route'
 import { responsesRoutes } from './routes/responses/route'
 import { tokenRoute } from './routes/token/route'
 import { usageRoute } from './routes/usage/route'
+import { registerDashboardRoutes } from './routes/dashboard-handler'
 
 export const server = new Hono()
 
@@ -16,6 +17,9 @@ server.use(logger())
 server.use(cors())
 
 server.get('/', c => c.text('Server running'))
+
+// Register dashboard routes
+registerDashboardRoutes(server)
 
 server.route('/chat/completions', completionRoutes)
 server.route('/models', modelRoutes)
