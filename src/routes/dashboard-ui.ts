@@ -14,25 +14,23 @@ export function dashboardHtml(isAuthenticated: boolean, needsSetup: boolean): st
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      background: #f5f5f5;
+      background: #fafafa;
       min-height: 100vh;
       color: #333;
     }
-    .container { max-width: 1200px; margin: 0 auto; padding: 20px; }
+    .container { max-width: 1000px; margin: 0 auto; padding: 15px; }
     
-    /* Header */
+    /* Header - minimal */
     header {
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      color: white;
-      padding: 20px;
-      border-radius: 12px;
-      margin-bottom: 20px;
       display: flex;
       justify-content: space-between;
       align-items: center;
+      padding: 15px 0;
+      border-bottom: 1px solid #eee;
+      margin-bottom: 20px;
     }
-    header h1 { font-size: 1.5rem; display: flex; align-items: center; gap: 10px; }
-    header .actions { display: flex; gap: 10px; }
+    header h1 { font-size: 1.1rem; font-weight: 600; color: #333; }
+    header .actions { display: flex; gap: 8px; }
     
     /* Cards - compact for mobile */
     .cards { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 15px; }
@@ -48,28 +46,31 @@ export function dashboardHtml(isAuthenticated: boolean, needsSetup: boolean): st
     
     /* Buttons */
     .btn {
-      padding: 8px 16px;
-      border: none;
+      padding: 6px 12px;
+      border: 1px solid #ddd;
       border-radius: 6px;
       cursor: pointer;
-      font-size: 0.9rem;
+      font-size: 0.8rem;
+      background: white;
+      color: #666;
       transition: all 0.2s;
     }
-    .btn-primary { background: #667eea; color: white; }
-    .btn-primary:hover { background: #5a6fd6; }
-    .btn-secondary { background: #e0e0e0; color: #333; }
-    .btn-secondary:hover { background: #d0d0d0; }
-    .btn-danger { background: #e74c3c; color: white; }
-    .btn-danger:hover { background: #c0392b; }
+    .btn:hover { border-color: #999; color: #333; }
+    .btn-primary { background: #333; color: white; border-color: #333; }
+    .btn-primary:hover { background: #555; }
+    .btn-secondary { background: white; color: #666; }
+    .btn-secondary:hover { background: #f5f5f5; }
+    .btn-danger { background: white; color: #e74c3c; border-color: #e74c3c; }
+    .btn-danger:hover { background: #fef2f2; }
     
     /* Time filter */
     .time-filter {
       display: flex;
-      gap: 8px;
-      margin-bottom: 20px;
+      gap: 6px;
+      margin-bottom: 15px;
       flex-wrap: wrap;
     }
-    .time-filter .btn.active { background: #667eea; color: white; }
+    .time-filter .btn.active { background: #333; color: white; border-color: #333; }
     
     /* Tables - scrollable on mobile */
     .table-wrap {
@@ -108,14 +109,14 @@ export function dashboardHtml(isAuthenticated: boolean, needsSetup: boolean): st
     }
     .chart-title { font-weight: 600; margin-bottom: 15px; }
     
-    /* Line chart */
-    .line-chart { height: 120px; position: relative; }
+    /* Line chart - minimal */
+    .line-chart { height: 60px; position: relative; }
     .line-chart svg { width: 100%; height: 100%; }
-    .line-path { fill: none; stroke: #667eea; stroke-width: 2; }
-    .area-path { fill: url(#areaGradient); opacity: 0.3; }
-    .chart-dot { fill: #667eea; cursor: pointer; }
-    .chart-dot:hover { fill: #764ba2; r: 5; }
-    .chart-labels { display: flex; justify-content: space-between; margin-top: 5px; }
+    .line-path { fill: none; stroke: #999; stroke-width: 1.5; }
+    .area-path { fill: #e5e5e5; opacity: 0.5; }
+    .chart-dot { fill: #666; cursor: pointer; r: 2; }
+    .chart-dot:hover { fill: #333; r: 4; }
+    .chart-labels { display: flex; justify-content: space-between; margin-top: 4px; }
     .chart-labels span { font-size: 0.65rem; color: #999; }
     .chart-tooltip {
       position: absolute;
@@ -123,13 +124,21 @@ export function dashboardHtml(isAuthenticated: boolean, needsSetup: boolean): st
       color: white;
       padding: 4px 8px;
       border-radius: 4px;
-      font-size: 0.75rem;
+      font-size: 0.7rem;
       white-space: nowrap;
       pointer-events: none;
       opacity: 0;
       transition: opacity 0.2s;
       z-index: 10;
     }
+    .chart-container {
+      background: white;
+      border-radius: 8px;
+      padding: 12px 15px;
+      margin-bottom: 15px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    }
+    .chart-title { font-size: 0.8rem; color: #666; margin-bottom: 10px; }
     
     /* Login form */
     .login-container {
@@ -161,24 +170,24 @@ export function dashboardHtml(isAuthenticated: boolean, needsSetup: boolean): st
     /* Model colors */
     .model-dot {
       display: inline-block;
-      width: 10px;
-      height: 10px;
+      width: 8px;
+      height: 8px;
       border-radius: 50%;
-      margin-right: 8px;
+      margin-right: 6px;
     }
     
     /* Source badges */
     .source-badge {
       display: inline-block;
-      padding: 2px 8px;
-      border-radius: 4px;
-      font-size: 0.75rem;
+      padding: 2px 6px;
+      border-radius: 3px;
+      font-size: 0.7rem;
       font-weight: 500;
-      background: #e0e0e0;
+      background: #f0f0f0;
       color: #666;
     }
-    .source-cc { background: #fef3c7; color: #92400e; }  /* Claude Code - amber */
-    .source-oc { background: #dbeafe; color: #1e40af; }  /* OpenClaw - blue */
+    .source-cc { background: #fef3c7; color: #92400e; }
+    .source-oc { background: #e0e7ff; color: #3730a3; }
     
     /* Two column layout */
     .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
@@ -189,15 +198,15 @@ export function dashboardHtml(isAuthenticated: boolean, needsSetup: boolean): st
     /* Responsive - mobile first */
     @media (max-width: 600px) {
       .container { padding: 10px; }
-      header { padding: 12px; border-radius: 10px; margin-bottom: 12px; }
-      header h1 { font-size: 1.1rem; }
+      header { padding: 10px 0; }
+      header h1 { font-size: 1rem; }
       .cards { gap: 8px; }
       .card { padding: 10px 12px; }
       .card-value { font-size: 1.2rem; }
-      .time-filter { justify-content: flex-start; gap: 5px; }
-      .time-filter .btn { padding: 6px 10px; font-size: 0.8rem; }
-      .chart-container { padding: 12px; min-height: 150px; }
-      .line-chart { height: 100px; }
+      .time-filter { gap: 4px; }
+      .time-filter .btn { padding: 5px 8px; font-size: 0.75rem; }
+      .chart-container { padding: 10px; }
+      .line-chart { height: 50px; }
     }
     @media (min-width: 601px) {
       .cards { grid-template-columns: repeat(4, 1fr); }
@@ -313,11 +322,11 @@ export function dashboardHtml(isAuthenticated: boolean, needsSetup: boolean): st
       
       return \`
         <header>
-          <h1>📊 Copilot Proxy Dashboard</h1>
+          <h1>Copilot Proxy</h1>
           <div class="actions">
-            <button class="btn btn-secondary" onclick="loadData()">🔄 Refresh</button>
-            <button class="btn btn-secondary" onclick="exportCsv()">📥 Export</button>
-            <button class="btn btn-danger" onclick="logout()">Logout</button>
+            <button class="btn" onclick="loadData()">Refresh</button>
+            <button class="btn" onclick="exportCsv()">Export</button>
+            <button class="btn" onclick="logout()">Logout</button>
           </div>
         </header>
 
@@ -352,13 +361,13 @@ export function dashboardHtml(isAuthenticated: boolean, needsSetup: boolean): st
         </div>
 
         <div class="chart-container">
-          <div class="chart-title">📈 Hourly Usage</div>
+          <div class="chart-title">Hourly</div>
           \${renderHourlyChart()}
         </div>
 
         <div class="two-col">
           <div class="table-wrap">
-            <div class="table-header">🔌 By Source</div>
+            <div class="table-header">Source</div>
             <table>
               <thead><tr><th>Source</th><th class="text-right">Calls</th><th class="text-right">Output</th></tr></thead>
               <tbody>
@@ -374,7 +383,7 @@ export function dashboardHtml(isAuthenticated: boolean, needsSetup: boolean): st
           </div>
 
           <div class="table-wrap">
-            <div class="table-header">📊 By Model</div>
+            <div class="table-header">Model</div>
             <table>
               <thead><tr><th>Model</th><th class="text-right">Calls</th><th class="text-right">Tokens</th></tr></thead>
               <tbody>
@@ -391,7 +400,7 @@ export function dashboardHtml(isAuthenticated: boolean, needsSetup: boolean): st
         </div>
 
         <div class="table-wrap" style="margin-top: 15px;">
-          <div class="table-header">📅 Daily</div>
+          <div class="table-header">Daily</div>
           <table>
             <thead><tr><th>Date</th><th class="text-right">Calls</th><th class="text-right">Tokens</th></tr></thead>
             <tbody>
@@ -407,7 +416,7 @@ export function dashboardHtml(isAuthenticated: boolean, needsSetup: boolean): st
         </div>
 
         <div class="table-wrap">
-          <div class="table-header">🕐 Recent Calls</div>
+          <div class="table-header">Recent</div>
           <table>
             <thead>
               <tr>
@@ -464,21 +473,14 @@ export function dashboardHtml(isAuthenticated: boolean, needsSetup: boolean): st
       return \`
         <div class="line-chart" id="hourlyChart">
           <svg viewBox="0 0 \${width} \${height}" preserveAspectRatio="none">
-            <defs>
-              <linearGradient id="areaGradient" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stop-color="#667eea"/>
-                <stop offset="100%" stop-color="#667eea" stop-opacity="0"/>
-              </linearGradient>
-            </defs>
             <path class="area-path" d="\${areaPath}"/>
             <path class="line-path" d="\${linePath}"/>
-            \${points.map((p, i) => \`<circle class="chart-dot" cx="\${p.x}" cy="\${p.y}" r="3" data-idx="\${i}"/>\`).join('')}
+            \${points.map((p, i) => \`<circle class="chart-dot" cx="\${p.x}" cy="\${p.y}" data-idx="\${i}"/>\`).join('')}
           </svg>
           <div class="chart-tooltip" id="chartTooltip"></div>
         </div>
         <div class="chart-labels">
           <span>\${labels[0] || ''}</span>
-          <span>\${labels[1] || ''}</span>
           <span>\${labels[2] || ''}</span>
         </div>
       \`;
