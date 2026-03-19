@@ -309,15 +309,34 @@ export function getHourlyUsage(since?: string): HourlyUsage[] {
   const whereClause = since ? 'WHERE timestamp >= ?' : ''
   const params = since ? [since] : []
 
+  // Same incremental logic as getStats() for Claude /v1/messages endpoint
   return db.prepare(`
+    WITH incremental AS (
+      SELECT
+        timestamp,
+        endpoint,
+        user_agent,
+        prompt_tokens,
+        completion_tokens,
+        total_tokens,
+        CASE
+          WHEN endpoint = '/v1/messages' THEN
+            prompt_tokens - COALESCE(LAG(prompt_tokens) OVER (
+              PARTITION BY endpoint, user_agent
+              ORDER BY timestamp, id
+            ), 0)
+          ELSE prompt_tokens
+        END as prompt_delta
+      FROM usage_log
+      ${whereClause}
+    )
     SELECT
       strftime('%Y-%m-%d %H:00', timestamp) as hour,
       COUNT(*) as calls,
-      SUM(total_tokens) as tokens,
-      SUM(prompt_tokens) as prompt_tokens,
+      SUM(CASE WHEN prompt_delta > 0 THEN prompt_delta ELSE prompt_tokens END + completion_tokens) as tokens,
+      SUM(CASE WHEN prompt_delta > 0 THEN prompt_delta ELSE prompt_tokens END) as prompt_tokens,
       SUM(completion_tokens) as completion_tokens
-    FROM usage_log
-    ${whereClause}
+    FROM incremental
     GROUP BY hour
     ORDER BY hour ASC
   `).all(...params) as HourlyUsage[]
