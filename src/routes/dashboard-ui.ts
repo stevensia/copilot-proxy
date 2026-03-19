@@ -34,17 +34,17 @@ export function dashboardHtml(isAuthenticated: boolean, needsSetup: boolean): st
     header h1 { font-size: 1.5rem; display: flex; align-items: center; gap: 10px; }
     header .actions { display: flex; gap: 10px; }
     
-    /* Cards */
-    .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 20px; }
+    /* Cards - compact for mobile */
+    .cards { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 15px; }
     .card {
       background: white;
-      border-radius: 12px;
-      padding: 20px;
+      border-radius: 10px;
+      padding: 12px 15px;
       box-shadow: 0 2px 8px rgba(0,0,0,0.08);
     }
-    .card-label { font-size: 0.85rem; color: #666; margin-bottom: 5px; }
-    .card-value { font-size: 1.8rem; font-weight: 700; color: #333; }
-    .card-sub { font-size: 0.75rem; color: #999; margin-top: 5px; }
+    .card-label { font-size: 0.75rem; color: #666; margin-bottom: 3px; }
+    .card-value { font-size: 1.4rem; font-weight: 700; color: #333; }
+    .card-sub { font-size: 0.7rem; color: #999; margin-top: 3px; }
     
     /* Buttons */
     .btn {
@@ -71,26 +71,28 @@ export function dashboardHtml(isAuthenticated: boolean, needsSetup: boolean): st
     }
     .time-filter .btn.active { background: #667eea; color: white; }
     
-    /* Tables */
+    /* Tables - scrollable on mobile */
     .table-wrap {
       background: white;
-      border-radius: 12px;
+      border-radius: 10px;
       box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-      overflow: hidden;
-      margin-bottom: 20px;
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+      margin-bottom: 15px;
     }
     .table-header {
-      padding: 15px 20px;
+      padding: 12px 15px;
       border-bottom: 1px solid #eee;
       font-weight: 600;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
+      font-size: 0.9rem;
+      position: sticky;
+      left: 0;
+      background: white;
     }
-    table { width: 100%; border-collapse: collapse; }
-    th, td { padding: 12px 20px; text-align: left; }
-    th { background: #f8f9fa; font-weight: 600; font-size: 0.85rem; color: #666; }
-    td { border-top: 1px solid #eee; }
+    table { width: 100%; border-collapse: collapse; min-width: 500px; }
+    th, td { padding: 10px 12px; text-align: left; white-space: nowrap; }
+    th { background: #f8f9fa; font-weight: 600; font-size: 0.8rem; color: #666; }
+    td { border-top: 1px solid #eee; font-size: 0.85rem; }
     tr:hover td { background: #f8f9fa; }
     .text-right { text-align: right; }
     .text-muted { color: #999; }
@@ -177,11 +179,27 @@ export function dashboardHtml(isAuthenticated: boolean, needsSetup: boolean): st
       margin-right: 8px;
     }
     
-    /* Responsive */
+    /* Two column layout */
+    .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+    @media (max-width: 700px) {
+      .two-col { grid-template-columns: 1fr; }
+    }
+    
+    /* Responsive - mobile first */
     @media (max-width: 600px) {
-      .cards { grid-template-columns: 1fr 1fr; }
-      header { flex-direction: column; gap: 15px; }
-      .time-filter { justify-content: center; }
+      .container { padding: 10px; }
+      header { padding: 12px; border-radius: 10px; margin-bottom: 12px; }
+      header h1 { font-size: 1.1rem; }
+      .cards { gap: 8px; }
+      .card { padding: 10px 12px; }
+      .card-value { font-size: 1.2rem; }
+      .time-filter { justify-content: flex-start; gap: 5px; }
+      .time-filter .btn { padding: 6px 10px; font-size: 0.8rem; }
+      .chart-container { padding: 12px; min-height: 150px; }
+      .bar-chart { height: 120px; }
+    }
+    @media (min-width: 601px) {
+      .cards { grid-template-columns: repeat(4, 1fr); }
     }
   </style>
 </head>
@@ -336,7 +354,7 @@ export function dashboardHtml(isAuthenticated: boolean, needsSetup: boolean): st
           </div>
         </div>
 
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+        <div class="two-col">
           <div class="table-wrap">
             <div class="table-header">📊 By Model</div>
             <table>
