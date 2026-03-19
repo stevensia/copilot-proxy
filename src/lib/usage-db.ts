@@ -257,6 +257,38 @@ export function getModelUsage(since?: string): ModelUsage[] {
 }
 
 /**
+ * Get usage by source (user agent)
+ */
+export interface SourceUsage {
+  source: string
+  calls: number
+  tokens: number
+}
+
+export function getSourceUsage(since?: string): SourceUsage[] {
+  const db = getUsageDb()
+  const whereClause = since ? 'WHERE timestamp >= ?' : ''
+  const params = since ? [since] : []
+
+  const rows = db.prepare(`
+    SELECT 
+      user_agent,
+      COUNT(*) as calls,
+      SUM(completion_tokens) as tokens
+    FROM usage_log
+    ${whereClause}
+    GROUP BY user_agent
+    ORDER BY tokens DESC
+  `).all(...params) as { user_agent: string | null, calls: number, tokens: number }[]
+
+  return rows.map(r => ({
+    source: parseSource(r.user_agent) || 'Unknown',
+    calls: r.calls,
+    tokens: r.tokens
+  }))
+}
+
+/**
  * Get recent usage records
  */
 export interface RecentUsage {
@@ -268,16 +300,37 @@ export interface RecentUsage {
   total_tokens: number
   endpoint: string | null
   duration_ms: number | null
+  source: string | null
+}
+
+function parseSource(userAgent: string | null): string | null {
+  if (!userAgent) return null
+  if (userAgent.includes('claude-cli')) return 'Claude Code'
+  if (userAgent.includes('OpenAI/JS')) return 'OpenClaw'
+  if (userAgent.includes('curl')) return 'curl'
+  return userAgent.split('/')[0] || userAgent
 }
 
 export function getRecentUsage(limit: number = 50): RecentUsage[] {
   const db = getUsageDb()
-  return db.prepare(`
-    SELECT id, timestamp, model, prompt_tokens, completion_tokens, total_tokens, endpoint, duration_ms
+  const rows = db.prepare(`
+    SELECT id, timestamp, model, prompt_tokens, completion_tokens, total_tokens, endpoint, duration_ms, user_agent
     FROM usage_log
     ORDER BY timestamp DESC
     LIMIT ?
-  `).all(limit) as RecentUsage[]
+  `).all(limit) as (RecentUsage & { user_agent: string | null })[]
+  
+  return rows.map(r => ({
+    id: r.id,
+    timestamp: r.timestamp,
+    model: r.model,
+    prompt_tokens: r.prompt_tokens,
+    completion_tokens: r.completion_tokens,
+    total_tokens: r.total_tokens,
+    endpoint: r.endpoint,
+    duration_ms: r.duration_ms,
+    source: parseSource(r.user_agent)
+  }))
 }
 
 /**

@@ -20,6 +20,7 @@ import {
   getHourlyUsage,
   getDailyUsage,
   getModelUsage,
+  getSourceUsage,
   getRecentUsage,
   getTodayStats,
   exportToCsv,
@@ -214,6 +215,19 @@ export function registerDashboardRoutes(app: Hono): void {
     const since = getSinceDate(hours)
     
     return c.json(getModelUsage(since))
+  })
+
+  // Usage by source
+  app.get('/dashboard/api/sources', (c) => {
+    const token = getCookie(c, COOKIE_NAME)
+    if (!token || !validateSession(token)) {
+      return c.json({ error: 'Unauthorized' }, 401)
+    }
+    
+    const hours = Number(c.req.query('hours')) || 0
+    const since = getSinceDate(hours)
+    
+    return c.json(getSourceUsage(since))
   })
 
   // Recent records

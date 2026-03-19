@@ -179,6 +179,19 @@ export function dashboardHtml(isAuthenticated: boolean, needsSetup: boolean): st
       margin-right: 8px;
     }
     
+    /* Source badges */
+    .source-badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-size: 0.75rem;
+      font-weight: 500;
+      background: #e0e0e0;
+      color: #666;
+    }
+    .source-cc { background: #fef3c7; color: #92400e; }  /* Claude Code - amber */
+    .source-oc { background: #dbeafe; color: #1e40af; }  /* OpenClaw - blue */
+    
     /* Two column layout */
     .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
     @media (max-width: 700px) {
@@ -218,6 +231,7 @@ export function dashboardHtml(isAuthenticated: boolean, needsSetup: boolean): st
       hourly: [],
       daily: [],
       models: [],
+      sources: [],
       recent: [],
     };
 
@@ -259,11 +273,12 @@ export function dashboardHtml(isAuthenticated: boolean, needsSetup: boolean): st
 
     async function loadData() {
       try {
-        const [statsRes, hourly, daily, models, recent] = await Promise.all([
+        const [statsRes, hourly, daily, models, sources, recent] = await Promise.all([
           api('stats?hours=' + state.hours),
           api('hourly?hours=' + state.hours),
           api('daily?hours=' + state.hours),
           api('models?hours=' + state.hours),
+          api('sources?hours=' + state.hours),
           api('recent?limit=20'),
         ]);
         state.stats = statsRes.stats;
@@ -271,6 +286,7 @@ export function dashboardHtml(isAuthenticated: boolean, needsSetup: boolean): st
         state.hourly = hourly;
         state.daily = daily;
         state.models = models;
+        state.sources = sources;
         state.recent = recent;
         render();
       } catch (e) {
@@ -356,6 +372,22 @@ export function dashboardHtml(isAuthenticated: boolean, needsSetup: boolean): st
 
         <div class="two-col">
           <div class="table-wrap">
+            <div class="table-header">🔌 By Source</div>
+            <table>
+              <thead><tr><th>Source</th><th class="text-right">Calls</th><th class="text-right">Output</th></tr></thead>
+              <tbody>
+                \${state.sources.map(s => \`
+                  <tr>
+                    <td><span class="source-badge \${s.source === 'Claude Code' ? 'source-cc' : s.source === 'OpenClaw' ? 'source-oc' : ''}">\${s.source}</span></td>
+                    <td class="text-right">\${formatNumber(s.calls)}</td>
+                    <td class="text-right">\${formatNumber(s.tokens)}</td>
+                  </tr>
+                \`).join('')}
+              </tbody>
+            </table>
+          </div>
+
+          <div class="table-wrap">
             <div class="table-header">📊 By Model</div>
             <table>
               <thead><tr><th>Model</th><th class="text-right">Calls</th><th class="text-right">Tokens</th></tr></thead>
@@ -370,22 +402,22 @@ export function dashboardHtml(isAuthenticated: boolean, needsSetup: boolean): st
               </tbody>
             </table>
           </div>
+        </div>
 
-          <div class="table-wrap">
-            <div class="table-header">📅 Daily</div>
-            <table>
-              <thead><tr><th>Date</th><th class="text-right">Calls</th><th class="text-right">Tokens</th></tr></thead>
-              <tbody>
-                \${state.daily.slice(0, 7).map(d => \`
-                  <tr>
-                    <td>\${d.date}</td>
-                    <td class="text-right">\${formatNumber(d.calls)}</td>
-                    <td class="text-right">\${formatNumber(d.tokens)}</td>
-                  </tr>
-                \`).join('')}
-              </tbody>
-            </table>
-          </div>
+        <div class="table-wrap" style="margin-top: 15px;">
+          <div class="table-header">📅 Daily</div>
+          <table>
+            <thead><tr><th>Date</th><th class="text-right">Calls</th><th class="text-right">Tokens</th></tr></thead>
+            <tbody>
+              \${state.daily.slice(0, 7).map(d => \`
+                <tr>
+                  <td>\${d.date}</td>
+                  <td class="text-right">\${formatNumber(d.calls)}</td>
+                  <td class="text-right">\${formatNumber(d.tokens)}</td>
+                </tr>
+              \`).join('')}
+            </tbody>
+          </table>
         </div>
 
         <div class="table-wrap">
@@ -394,10 +426,10 @@ export function dashboardHtml(isAuthenticated: boolean, needsSetup: boolean): st
             <thead>
               <tr>
                 <th>Time</th>
+                <th>Source</th>
                 <th>Model</th>
                 <th class="text-right">Prompt</th>
-                <th class="text-right">Completion</th>
-                <th class="text-right">Total</th>
+                <th class="text-right">Compl</th>
                 <th class="text-right">Duration</th>
               </tr>
             </thead>
@@ -405,11 +437,11 @@ export function dashboardHtml(isAuthenticated: boolean, needsSetup: boolean): st
               \${state.recent.map(r => \`
                 <tr>
                   <td class="text-muted">\${formatTime(r.timestamp)}</td>
+                  <td><span class="source-badge \${r.source === 'Claude Code' ? 'source-cc' : r.source === 'OpenClaw' ? 'source-oc' : ''}">\${r.source || '-'}</span></td>
                   <td><span class="model-dot" style="background:\${getModelColor(r.model)}"></span>\${r.model}</td>
                   <td class="text-right">\${formatNumber(r.prompt_tokens)}</td>
                   <td class="text-right">\${formatNumber(r.completion_tokens)}</td>
-                  <td class="text-right">\${formatNumber(r.total_tokens)}</td>
-                  <td class="text-right text-muted">\${r.duration_ms ? r.duration_ms + 'ms' : '-'}</td>
+                  <td class="text-right text-muted">\${r.duration_ms ? (r.duration_ms / 1000).toFixed(1) + 's' : '-'}</td>
                 </tr>
               \`).join('')}
             </tbody>
