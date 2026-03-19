@@ -329,7 +329,12 @@ export function dashboardHtml(isAuthenticated: boolean, needsSetup: boolean): st
           api('sources?hours=' + state.hours),
           api('recent?limit=12'),
         ]);
-        Object.assign(state, { stats: statsRes.stats, today: statsRes.today, hourly, daily, models, sources, recent });
+        Object.assign(state, { 
+          stats: statsRes.stats, 
+          today: statsRes.today, 
+          totalCost: statsRes.totalCost,
+          hourly, daily, models, sources, recent 
+        });
         render();
       } catch (e) { console.error(e); }
     }
@@ -375,6 +380,13 @@ export function dashboardHtml(isAuthenticated: boolean, needsSetup: boolean): st
     function renderDashboard() {
       const s = state.stats || {};
       const t = state.today || {};
+      const totalCost = state.totalCost || 0;
+      
+      function fmtCost(c) {
+        if (c >= 1) return '$' + c.toFixed(2);
+        if (c >= 0.01) return '$' + c.toFixed(3);
+        return '$' + c.toFixed(4);
+      }
       
       return \`
         <header>
@@ -404,13 +416,14 @@ export function dashboardHtml(isAuthenticated: boolean, needsSetup: boolean): st
             <div class="stat-value">\${fmt(s.total_completion_tokens || 0)}</div>
           </div>
           <div class="stat">
-            <div class="stat-label">Input Tokens</div>
-            <div class="stat-value">\${fmt(s.total_prompt_tokens || 0)}</div>
+            <div class="stat-label">💰 Est. Cost</div>
+            <div class="stat-value">\${fmtCost(totalCost)}</div>
+            <div class="stat-sub">Based on API pricing</div>
           </div>
           <div class="stat">
-            <div class="stat-label">Today</div>
-            <div class="stat-value">\${fmt(t.total_calls || 0)}</div>
-            <div class="stat-sub">\${fmt(t.total_completion_tokens || 0)} output</div>
+            <div class="stat-label">Today Cost</div>
+            <div class="stat-value">\${fmtCost(t.cost || 0)}</div>
+            <div class="stat-sub">\${fmt(t.total_calls || 0)} calls</div>
           </div>
         </div>
         
@@ -439,13 +452,14 @@ export function dashboardHtml(isAuthenticated: boolean, needsSetup: boolean): st
             <div class="section-title">By Model</div>
             <div class="table-wrap">
               <table>
-                <thead><tr><th>Model</th><th class="text-right">Calls</th><th class="text-right">Output</th></tr></thead>
+                <thead><tr><th>Model</th><th class="text-right">Calls</th><th class="text-right">Output</th><th class="text-right">Cost</th></tr></thead>
                 <tbody>
                   \${state.models.map(m => \`
                     <tr>
                       <td><span class="dot" style="background:\${getColor(m.model)}"></span>\${m.model}</td>
                       <td class="text-right mono">\${fmt(m.calls)}</td>
                       <td class="text-right mono">\${fmt(m.tokens)}</td>
+                      <td class="text-right mono" style="color:var(--green)">\${fmtCost(m.cost || 0)}</td>
                     </tr>
                   \`).join('')}
                 </tbody>
@@ -465,7 +479,7 @@ export function dashboardHtml(isAuthenticated: boolean, needsSetup: boolean): st
                   <th>Model</th>
                   <th class="text-right">Input</th>
                   <th class="text-right">Output</th>
-                  <th class="text-right">Duration</th>
+                  <th class="text-right">Cost</th>
                 </tr>
               </thead>
               <tbody>
@@ -476,7 +490,7 @@ export function dashboardHtml(isAuthenticated: boolean, needsSetup: boolean): st
                     <td><span class="dot" style="background:\${getColor(r.model)}"></span>\${r.model}</td>
                     <td class="text-right mono">\${fmt(r.prompt_tokens)}</td>
                     <td class="text-right mono">\${fmt(r.completion_tokens)}</td>
-                    <td class="text-right mono" style="color:var(--text-dim)">\${r.duration_ms ? (r.duration_ms/1000).toFixed(1) + 's' : '-'}</td>
+                    <td class="text-right mono" style="color:var(--green)">\${fmtCost(r.cost || 0)}</td>
                   </tr>
                 \`).join('')}
               </tbody>

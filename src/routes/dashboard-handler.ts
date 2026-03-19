@@ -23,6 +23,9 @@ import {
   getSourceUsage,
   getRecentUsage,
   getTodayStats,
+  getTotalCost,
+  getAllPricing,
+  savePricing,
   exportToCsv,
 } from '../lib/usage-db'
 import { dashboardHtml } from './dashboard-ui'
@@ -170,11 +173,13 @@ export function registerDashboardRoutes(app: Hono): void {
     
     const stats = getStats(since)
     const today = getTodayStats()
+    const totalCost = getTotalCost(since)
     
     return c.json({
       stats,
       today,
       hours,
+      totalCost,
     })
   })
 
@@ -260,5 +265,31 @@ export function registerDashboardRoutes(app: Hono): void {
         'Content-Disposition': `attachment; filename="copilot-usage-${new Date().toISOString().slice(0, 10)}.csv"`,
       },
     })
+  })
+
+  // Get pricing data
+  app.get('/dashboard/api/pricing', (c) => {
+    const token = getCookie(c, COOKIE_NAME)
+    if (!token || !validateSession(token)) {
+      return c.json({ error: 'Unauthorized' }, 401)
+    }
+    
+    return c.json(getAllPricing())
+  })
+
+  // Update pricing data
+  app.post('/dashboard/api/pricing', async (c) => {
+    const token = getCookie(c, COOKIE_NAME)
+    if (!token || !validateSession(token)) {
+      return c.json({ error: 'Unauthorized' }, 401)
+    }
+    
+    try {
+      const pricing = await c.req.json<Record<string, { input: number; output: number }>>()
+      savePricing(pricing)
+      return c.json({ success: true })
+    } catch (e: any) {
+      return c.json({ error: e.message }, 400)
+    }
   })
 }
