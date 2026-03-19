@@ -3,10 +3,10 @@
  * Cross-platform SQLite storage for API usage logs
  */
 
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { homedir } from 'node:os'
+import { join } from 'node:path'
 import { Database } from 'bun:sqlite'
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs'
-import { homedir } from 'os'
-import { join } from 'path'
 
 const APP_DIR = join(homedir(), '.copilot-proxy')
 const DB_PATH = join(APP_DIR, 'usage.db')
@@ -18,11 +18,11 @@ const PRICING_PATH = join(APP_DIR, 'pricing.json')
  * - OpenAI: https://openai.com/api/pricing/
  * - Anthropic: https://www.anthropic.com/pricing
  * - Azure OpenAI: https://azure.microsoft.com/pricing/details/cognitive-services/openai-service/
- * 
+ *
  * Note: These are estimated equivalent prices. Copilot subscription includes
  * API access but actual costs depend on your subscription tier.
  */
-const DEFAULT_PRICING: Record<string, { input: number; output: number }> = {
+const DEFAULT_PRICING: Record<string, { input: number, output: number }> = {
   // GPT-4o series (Azure/OpenAI pricing)
   'gpt-4o': { input: 2.50, output: 10.00 },
   'gpt-4o-mini': { input: 0.15, output: 0.60 },
@@ -30,13 +30,13 @@ const DEFAULT_PRICING: Record<string, { input: number; output: number }> = {
   'gpt-4o-2024-08-06': { input: 2.50, output: 10.00 },
   'gpt-4o-2024-11-20': { input: 2.50, output: 10.00 },
   'gpt-4o-mini-2024-07-18': { input: 0.15, output: 0.60 },
-  
+
   // GPT-4.1 series
   'gpt-4.1': { input: 2.00, output: 8.00 },
   'gpt-4.1-mini': { input: 0.40, output: 1.60 },
   'gpt-4.1-nano': { input: 0.10, output: 0.40 },
   'gpt-4.1-2025-04-14': { input: 2.00, output: 8.00 },
-  
+
   // GPT-5 series (estimated based on capability tiers)
   'gpt-5': { input: 5.00, output: 20.00 },
   'gpt-5.1': { input: 5.00, output: 20.00 },
@@ -50,11 +50,11 @@ const DEFAULT_PRICING: Record<string, { input: number; output: number }> = {
   'gpt-5.3-codex': { input: 5.00, output: 20.00 },
   'gpt-5.4': { input: 5.00, output: 20.00 },
   'gpt-5.4-mini': { input: 0.80, output: 3.20 },
-  
+
   // Reasoning models
   'o3-mini': { input: 1.10, output: 4.40 },
   'o4-mini': { input: 1.10, output: 4.40 },
-  
+
   // Claude models (Anthropic pricing)
   'claude-haiku-4.5': { input: 0.80, output: 4.00 },
   'claude-sonnet-4': { input: 3.00, output: 15.00 },
@@ -63,13 +63,13 @@ const DEFAULT_PRICING: Record<string, { input: number; output: number }> = {
   'claude-opus-4.5': { input: 15.00, output: 75.00 },
   'claude-opus-4.6': { input: 15.00, output: 75.00 },
   'claude-opus-4.6-1m': { input: 15.00, output: 75.00 },
-  
+
   // Gemini models (Google pricing)
   'gemini-2.5-pro': { input: 1.25, output: 5.00 },
   'gemini-3-pro-preview': { input: 1.25, output: 5.00 },
   'gemini-3-flash-preview': { input: 0.075, output: 0.30 },
   'gemini-3.1-pro-preview': { input: 1.25, output: 5.00 },
-  
+
   // Legacy models
   'gpt-4': { input: 30.00, output: 60.00 },
   'gpt-4-0613': { input: 30.00, output: 60.00 },
@@ -79,32 +79,35 @@ const DEFAULT_PRICING: Record<string, { input: number; output: number }> = {
 }
 
 // Runtime pricing cache
-let pricingCache: Record<string, { input: number; output: number }> | null = null
+let pricingCache: Record<string, { input: number, output: number }> | null = null
 
 /**
  * Load pricing from file or use defaults
  */
-export function loadPricing(): Record<string, { input: number; output: number }> {
-  if (pricingCache) return pricingCache
-  
+export function loadPricing(): Record<string, { input: number, output: number }> {
+  if (pricingCache)
+    return pricingCache
+
   try {
     if (existsSync(PRICING_PATH)) {
       const custom = JSON.parse(readFileSync(PRICING_PATH, 'utf-8'))
       pricingCache = { ...DEFAULT_PRICING, ...custom }
-    } else {
+    }
+    else {
       pricingCache = DEFAULT_PRICING
     }
-  } catch {
+  }
+  catch {
     pricingCache = DEFAULT_PRICING
   }
-  
+
   return pricingCache!
 }
 
 /**
  * Save custom pricing to file
  */
-export function savePricing(pricing: Record<string, { input: number; output: number }>): void {
+export function savePricing(pricing: Record<string, { input: number, output: number }>): void {
   if (!existsSync(APP_DIR)) {
     mkdirSync(APP_DIR, { recursive: true })
   }
@@ -115,19 +118,20 @@ export function savePricing(pricing: Record<string, { input: number; output: num
 /**
  * Get pricing for a model
  */
-export function getModelPricing(model: string): { input: number; output: number } {
+export function getModelPricing(model: string): { input: number, output: number } {
   const pricing = loadPricing()
-  
+
   // Exact match
-  if (pricing[model]) return pricing[model]
-  
+  if (pricing[model])
+    return pricing[model]
+
   // Fuzzy match: try to find a base model
   for (const [key, value] of Object.entries(pricing)) {
     if (model.startsWith(key) || key.startsWith(model)) {
       return value
     }
   }
-  
+
   // Default fallback (mid-range pricing)
   return { input: 2.00, output: 8.00 }
 }
@@ -143,7 +147,7 @@ export function calculateCost(model: string, promptTokens: number, completionTok
 /**
  * Get all pricing data (for UI display)
  */
-export function getAllPricing(): Record<string, { input: number; output: number }> {
+export function getAllPricing(): Record<string, { input: number, output: number }> {
   return loadPricing()
 }
 
@@ -153,7 +157,8 @@ let db: Database | null = null
  * Initialize database connection and schema
  */
 export function getUsageDb(): Database {
-  if (db) return db
+  if (db)
+    return db
 
   // Ensure directory exists
   if (!existsSync(APP_DIR)) {
@@ -232,9 +237,10 @@ export function logUsage(entry: UsageLogEntry): void {
       entry.endpoint ?? null,
       entry.duration_ms ?? null,
       entry.client_ip ?? null,
-      entry.user_agent ?? null
+      entry.user_agent ?? null,
     )
-  } catch (e) {
+  }
+  catch (e) {
     // Silent fail - don't break main flow
     console.error('[UsageDB] Failed to log usage:', e)
   }
@@ -294,6 +300,8 @@ export interface HourlyUsage {
   hour: string
   calls: number
   tokens: number
+  prompt_tokens: number
+  completion_tokens: number
 }
 
 export function getHourlyUsage(since?: string): HourlyUsage[] {
@@ -305,7 +313,9 @@ export function getHourlyUsage(since?: string): HourlyUsage[] {
     SELECT
       strftime('%Y-%m-%d %H:00', timestamp) as hour,
       COUNT(*) as calls,
-      SUM(total_tokens) as tokens
+      SUM(total_tokens) as tokens,
+      SUM(prompt_tokens) as prompt_tokens,
+      SUM(completion_tokens) as completion_tokens
     FROM usage_log
     ${whereClause}
     GROUP BY hour
@@ -395,7 +405,7 @@ export function getModelUsage(since?: string): ModelUsage[] {
   // Add cost calculation
   return rows.map(r => ({
     ...r,
-    cost: calculateCost(r.model, r.prompt_tokens, r.completion_tokens)
+    cost: calculateCost(r.model, r.prompt_tokens, r.completion_tokens),
   }))
 }
 
@@ -427,7 +437,7 @@ export function getSourceUsage(since?: string): SourceUsage[] {
   return rows.map(r => ({
     source: parseSource(r.user_agent) || 'Unknown',
     calls: r.calls,
-    tokens: r.tokens
+    tokens: r.tokens,
   }))
 }
 
@@ -448,10 +458,14 @@ export interface RecentUsage {
 }
 
 function parseSource(userAgent: string | null): string | null {
-  if (!userAgent) return null
-  if (userAgent.includes('claude-cli')) return 'Claude Code'
-  if (userAgent.includes('OpenAI/JS')) return 'OpenClaw'
-  if (userAgent.includes('curl')) return 'curl'
+  if (!userAgent)
+    return null
+  if (userAgent.includes('claude-cli'))
+    return 'Claude Code'
+  if (userAgent.includes('OpenAI/JS'))
+    return 'OpenClaw'
+  if (userAgent.includes('curl'))
+    return 'curl'
   return userAgent.split('/')[0] || userAgent
 }
 
@@ -463,7 +477,7 @@ export function getRecentUsage(limit: number = 50): RecentUsage[] {
     ORDER BY timestamp DESC
     LIMIT ?
   `).all(limit) as (Omit<RecentUsage, 'source' | 'cost'> & { user_agent: string | null })[]
-  
+
   return rows.map(r => ({
     id: r.id,
     timestamp: r.timestamp,
@@ -474,7 +488,7 @@ export function getRecentUsage(limit: number = 50): RecentUsage[] {
     endpoint: r.endpoint,
     duration_ms: r.duration_ms,
     source: parseSource(r.user_agent),
-    cost: calculateCost(r.model, r.prompt_tokens, r.completion_tokens)
+    cost: calculateCost(r.model, r.prompt_tokens, r.completion_tokens),
   }))
 }
 
@@ -503,7 +517,7 @@ export function getTodayStats(): TodayStats {
     FROM usage_log
     WHERE date(timestamp) = date('now', 'localtime')
     GROUP BY model
-  `).all() as { model: string; prompt: number; completion: number }[]
+  `).all() as { model: string, prompt: number, completion: number }[]
 
   const cost = modelStats.reduce((sum, m) => sum + calculateCost(m.model, m.prompt, m.completion), 0)
 
@@ -523,7 +537,7 @@ export function getTotalCost(since?: string): number {
     FROM usage_log
     ${whereClause}
     GROUP BY model
-  `).all(...params) as { model: string; prompt: number; completion: number }[]
+  `).all(...params) as { model: string, prompt: number, completion: number }[]
 
   return modelStats.reduce((sum, m) => sum + calculateCost(m.model, m.prompt, m.completion), 0)
 }
@@ -545,7 +559,7 @@ export function exportToCsv(since?: string): string {
 
   const header = 'timestamp,model,prompt_tokens,completion_tokens,total_tokens,endpoint,duration_ms'
   const lines = rows.map(r =>
-    `${r.timestamp},${r.model},${r.prompt_tokens},${r.completion_tokens},${r.total_tokens},${r.endpoint || ''},${r.duration_ms || ''}`
+    `${r.timestamp},${r.model},${r.prompt_tokens},${r.completion_tokens},${r.total_tokens},${r.endpoint || ''},${r.duration_ms || ''}`,
   )
 
   return [header, ...lines].join('\n')
