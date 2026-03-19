@@ -1,6 +1,6 @@
 /**
  * Dashboard UI - Single-file HTML/CSS/JS
- * Clean, minimal design inspired by Linear/Vercel
+ * Light (Azure Blue) / Dark theme toggle
  */
 
 export function dashboardHtml(isAuthenticated: boolean, needsSetup: boolean): string {
@@ -11,77 +11,114 @@ export function dashboardHtml(isAuthenticated: boolean, needsSetup: boolean): st
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Usage Dashboard</title>
   <style>
-    :root {
-      --bg: #0a0a0a;
-      --bg-card: #141414;
-      --bg-hover: #1a1a1a;
-      --border: #262626;
-      --text: #fafafa;
-      --text-muted: #737373;
-      --text-dim: #525252;
-      --accent: #3b82f6;
-      --accent-dim: #1d4ed8;
-      --green: #22c55e;
-      --amber: #f59e0b;
-    }
-    
     * { box-sizing: border-box; margin: 0; padding: 0; }
     
     body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Inter', sans-serif;
-      background: var(--bg);
-      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
       min-height: 100vh;
       font-size: 14px;
       line-height: 1.5;
       -webkit-font-smoothing: antialiased;
+      transition: background 0.2s ease, color 0.2s ease;
     }
     
-    .container { max-width: 960px; margin: 0 auto; padding: 24px 16px; }
+    /* Light Theme (Azure Blue Tint) */
+    body.theme-light {
+      --bg: #f0f4f8;
+      --bg-card: #ffffff;
+      --bg-hover: #e8eef4;
+      --border: #cdd7e1;
+      --text: #0d2137;
+      --text-muted: #4a5568;
+      --text-dim: #8696a7;
+      --accent: #0078d4;
+      --accent-hover: #106ebe;
+      --green: #107c10;
+      --amber: #ca5010;
+      --shadow: 0 1px 3px rgba(0,0,0,0.06);
+    }
+    
+    /* Dark Theme (Slate) */
+    body.theme-dark {
+      --bg: #0f172a;
+      --bg-card: #1e293b;
+      --bg-hover: #334155;
+      --border: #334155;
+      --text: #f1f5f9;
+      --text-muted: #94a3b8;
+      --text-dim: #64748b;
+      --accent: #38bdf8;
+      --accent-hover: #7dd3fc;
+      --green: #4ade80;
+      --amber: #fbbf24;
+      --shadow: 0 1px 3px rgba(0,0,0,0.3);
+    }
+    
+    body { background: var(--bg); color: var(--text); }
+    
+    .container { max-width: 900px; margin: 0 auto; padding: 24px 20px; }
+    
+    /* Theme Toggle */
+    .theme-toggle {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      width: 40px;
+      height: 40px;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      background: var(--bg-card);
+      color: var(--text-muted);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+      box-shadow: var(--shadow);
+      transition: all 0.15s ease;
+      z-index: 100;
+    }
+    .theme-toggle:hover { background: var(--bg-hover); color: var(--text); }
     
     /* Header */
     header {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      margin-bottom: 32px;
+      margin-bottom: 28px;
       padding-bottom: 16px;
       border-bottom: 1px solid var(--border);
     }
-    .logo {
-      font-size: 13px;
-      font-weight: 500;
-      color: var(--text-muted);
-      letter-spacing: -0.01em;
-    }
+    .logo { font-size: 15px; font-weight: 600; color: var(--text); }
     .header-actions { display: flex; gap: 8px; }
     
     /* Buttons */
     .btn {
-      padding: 6px 12px;
+      padding: 7px 14px;
       font-size: 13px;
       font-weight: 500;
       border: 1px solid var(--border);
       border-radius: 6px;
-      background: transparent;
+      background: var(--bg-card);
       color: var(--text-muted);
       cursor: pointer;
       transition: all 0.15s ease;
     }
-    .btn:hover { background: var(--bg-hover); color: var(--text); border-color: #404040; }
-    .btn.active { background: var(--text); color: var(--bg); border-color: var(--text); }
+    .btn:hover { background: var(--bg-hover); color: var(--text); }
+    .btn.active { background: var(--accent); color: white; border-color: var(--accent); }
     
     /* Stats Grid */
-    .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 24px; }
+    .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 24px; }
     .stat {
       background: var(--bg-card);
       border: 1px solid var(--border);
-      border-radius: 8px;
-      padding: 16px;
+      border-radius: 10px;
+      padding: 18px;
+      box-shadow: var(--shadow);
     }
-    .stat-label { font-size: 12px; color: var(--text-dim); margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.05em; }
-    .stat-value { font-size: 24px; font-weight: 600; color: var(--text); font-variant-numeric: tabular-nums; }
-    .stat-sub { font-size: 11px; color: var(--text-dim); margin-top: 4px; }
+    .stat-label { font-size: 12px; color: var(--text-dim); margin-bottom: 6px; font-weight: 500; }
+    .stat-value { font-size: 26px; font-weight: 600; color: var(--text); font-variant-numeric: tabular-nums; }
+    .stat-sub { font-size: 12px; color: var(--text-dim); margin-top: 4px; }
     
     /* Time Filter */
     .filters { display: flex; gap: 6px; margin-bottom: 24px; }
@@ -90,57 +127,58 @@ export function dashboardHtml(isAuthenticated: boolean, needsSetup: boolean): st
     .sparkline-wrap {
       background: var(--bg-card);
       border: 1px solid var(--border);
-      border-radius: 8px;
-      padding: 16px;
+      border-radius: 10px;
+      padding: 18px;
       margin-bottom: 24px;
+      box-shadow: var(--shadow);
     }
-    .sparkline-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
-    .sparkline-title { font-size: 12px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.05em; }
-    .sparkline-value { font-size: 13px; color: var(--text-muted); }
-    .sparkline { height: 48px; position: relative; }
+    .sparkline-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
+    .sparkline-title { font-size: 13px; color: var(--text-muted); font-weight: 500; }
+    .sparkline-value { font-size: 13px; color: var(--text-dim); }
+    .sparkline { height: 64px; position: relative; }
     .sparkline svg { width: 100%; height: 100%; }
-    .spark-line { fill: none; stroke: var(--accent); stroke-width: 1.5; }
+    .spark-line { fill: none; stroke: var(--accent); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
     .spark-area { fill: var(--accent); opacity: 0.1; }
     .spark-dot { fill: var(--accent); opacity: 0; transition: opacity 0.15s; }
     .sparkline:hover .spark-dot { opacity: 1; }
     .spark-tooltip {
       position: absolute;
       background: var(--text);
-      color: var(--bg);
-      padding: 4px 8px;
-      border-radius: 4px;
-      font-size: 11px;
+      color: var(--bg-card);
+      padding: 5px 10px;
+      border-radius: 6px;
+      font-size: 12px;
       font-weight: 500;
       pointer-events: none;
       opacity: 0;
       transition: opacity 0.15s;
       white-space: nowrap;
     }
-    .sparkline-labels { display: flex; justify-content: space-between; margin-top: 8px; }
+    .sparkline-labels { display: flex; justify-content: space-between; margin-top: 10px; }
     .sparkline-labels span { font-size: 11px; color: var(--text-dim); }
     
     /* Tables */
     .section { margin-bottom: 24px; }
-    .section-title { font-size: 12px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 12px; }
+    .section-title { font-size: 13px; color: var(--text-muted); font-weight: 600; margin-bottom: 12px; }
     .table-wrap {
       background: var(--bg-card);
       border: 1px solid var(--border);
-      border-radius: 8px;
+      border-radius: 10px;
       overflow: hidden;
+      box-shadow: var(--shadow);
     }
     table { width: 100%; border-collapse: collapse; }
     th { 
       text-align: left; 
-      padding: 10px 16px; 
-      font-size: 11px; 
-      font-weight: 500;
-      color: var(--text-dim); 
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
+      padding: 12px 16px; 
+      font-size: 12px; 
+      font-weight: 600;
+      color: var(--text-dim);
+      background: var(--bg-hover);
       border-bottom: 1px solid var(--border);
     }
     td { 
-      padding: 10px 16px; 
+      padding: 11px 16px; 
       font-size: 13px;
       color: var(--text-muted);
       border-bottom: 1px solid var(--border);
@@ -148,85 +186,105 @@ export function dashboardHtml(isAuthenticated: boolean, needsSetup: boolean): st
     tr:last-child td { border-bottom: none; }
     tr:hover td { background: var(--bg-hover); }
     .text-right { text-align: right; }
-    .mono { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 12px; }
+    .mono { font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace; font-size: 12px; }
     
     /* Badges */
     .badge {
       display: inline-block;
-      padding: 2px 8px;
-      border-radius: 4px;
+      padding: 3px 10px;
+      border-radius: 12px;
       font-size: 11px;
-      font-weight: 500;
+      font-weight: 600;
     }
-    .badge-blue { background: rgba(59, 130, 246, 0.15); color: #60a5fa; }
-    .badge-amber { background: rgba(245, 158, 11, 0.15); color: #fbbf24; }
-    .badge-gray { background: rgba(115, 115, 115, 0.15); color: #a3a3a3; }
+    .badge-accent { background: color-mix(in srgb, var(--accent) 15%, transparent); color: var(--accent); }
+    .badge-amber { background: color-mix(in srgb, var(--amber) 15%, transparent); color: var(--amber); }
+    .badge-gray { background: var(--bg-hover); color: var(--text-dim); }
     
     /* Model dot */
     .dot { 
       display: inline-block; 
-      width: 6px; 
-      height: 6px; 
+      width: 8px; 
+      height: 8px; 
       border-radius: 50%; 
       margin-right: 8px;
     }
     
     /* Two columns */
-    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
     
     /* Login */
-    .login-wrap {
-      max-width: 320px;
-      margin: 120px auto;
-    }
+    .login-wrap { max-width: 340px; margin: 100px auto; }
     .login-card {
       background: var(--bg-card);
       border: 1px solid var(--border);
       border-radius: 12px;
-      padding: 32px;
+      padding: 36px;
+      box-shadow: var(--shadow);
     }
-    .login-title { font-size: 16px; font-weight: 600; text-align: center; margin-bottom: 24px; }
+    .login-title { font-size: 18px; font-weight: 600; text-align: center; margin-bottom: 28px; color: var(--text); }
     .form-input {
       width: 100%;
-      padding: 10px 12px;
+      padding: 11px 14px;
       font-size: 14px;
       background: var(--bg);
       border: 1px solid var(--border);
-      border-radius: 6px;
+      border-radius: 8px;
       color: var(--text);
-      margin-bottom: 16px;
+      margin-bottom: 14px;
     }
     .form-input:focus { outline: none; border-color: var(--accent); }
     .form-input::placeholder { color: var(--text-dim); }
     .btn-submit {
       width: 100%;
-      padding: 10px;
+      padding: 11px;
       font-size: 14px;
-      font-weight: 500;
-      background: var(--text);
-      color: var(--bg);
+      font-weight: 600;
+      background: var(--accent);
+      color: white;
       border: none;
-      border-radius: 6px;
+      border-radius: 8px;
       cursor: pointer;
     }
-    .btn-submit:hover { opacity: 0.9; }
-    .error-msg { color: #ef4444; font-size: 13px; text-align: center; margin-top: 12px; }
+    .btn-submit:hover { background: var(--accent-hover); }
+    .error-msg { color: #dc2626; font-size: 13px; text-align: center; margin-top: 14px; }
     
     /* Responsive */
     @media (max-width: 640px) {
       .stats { grid-template-columns: repeat(2, 1fr); }
       .grid-2 { grid-template-columns: 1fr; }
-      .stat-value { font-size: 20px; }
-      .container { padding: 16px 12px; }
+      .stat-value { font-size: 22px; }
+      .container { padding: 16px 14px; }
+      .theme-toggle { top: 12px; right: 12px; width: 36px; height: 36px; font-size: 16px; }
     }
   </style>
 </head>
-<body>
+<body class="theme-light">
+  <button class="theme-toggle" id="themeToggle" title="Toggle theme">☀️</button>
+  
   <div class="container" id="app">
     <div style="text-align:center;padding:60px;color:var(--text-dim)">Loading...</div>
   </div>
 
   <script>
+    // Theme toggle
+    function setTheme(dark) {
+      document.body.className = dark ? 'theme-dark' : 'theme-light';
+      document.getElementById('themeToggle').textContent = dark ? '🌙' : '☀️';
+      localStorage.setItem('dashboard-theme', dark ? 'dark' : 'light');
+    }
+    
+    document.getElementById('themeToggle').addEventListener('click', () => {
+      setTheme(document.body.classList.contains('theme-light'));
+    });
+    
+    // Load saved theme or use system preference
+    const saved = localStorage.getItem('dashboard-theme');
+    if (saved) {
+      setTheme(saved === 'dark');
+    } else if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
+      setTheme(true);
+    }
+
     const state = {
       authenticated: ${isAuthenticated},
       needsSetup: ${needsSetup},
@@ -241,17 +299,14 @@ export function dashboardHtml(isAuthenticated: boolean, needsSetup: boolean): st
     };
 
     const COLORS = {
-      'claude-opus-4.5': '#a855f7',
-      'claude-opus-4.6': '#8b5cf6',
+      'claude-opus-4.5': '#8b5cf6',
+      'claude-opus-4.6': '#7c3aed',
       'claude-sonnet-4.5': '#6366f1',
-      'gpt-5.1': '#22c55e',
-      'gpt-5.1-codex': '#10b981',
+      'gpt-5.1': '#10b981',
+      'gpt-5.1-codex': '#059669',
     };
     
-    function getColor(model) {
-      return COLORS[model] || '#737373';
-    }
-
+    function getColor(model) { return COLORS[model] || '#9ca3af'; }
     function fmt(n) {
       if (n >= 1000000) return (n / 1000000).toFixed(1) + 'M';
       if (n >= 1000) return (n / 1000).toFixed(1) + 'K';
@@ -272,7 +327,7 @@ export function dashboardHtml(isAuthenticated: boolean, needsSetup: boolean): st
           api('daily?hours=' + state.hours),
           api('models?hours=' + state.hours),
           api('sources?hours=' + state.hours),
-          api('recent?limit=15'),
+          api('recent?limit=12'),
         ]);
         Object.assign(state, { stats: statsRes.stats, today: statsRes.today, hourly, daily, models, sources, recent });
         render();
@@ -281,7 +336,7 @@ export function dashboardHtml(isAuthenticated: boolean, needsSetup: boolean): st
 
     function renderSparkline() {
       const data = state.hourly;
-      if (!data.length) return '<div style="color:var(--text-dim);padding:20px">No data</div>';
+      if (!data.length) return '<div style="color:var(--text-dim);padding:24px;text-align:center">No data available</div>';
       
       const max = Math.max(...data.map(d => d.tokens), 1);
       const w = 100, h = 100, pad = 2;
@@ -298,14 +353,14 @@ export function dashboardHtml(isAuthenticated: boolean, needsSetup: boolean): st
       return \`
         <div class="sparkline-wrap">
           <div class="sparkline-header">
-            <span class="sparkline-title">Hourly output</span>
-            <span class="sparkline-value">\${fmt(total)} tokens</span>
+            <span class="sparkline-title">Output Tokens (Hourly)</span>
+            <span class="sparkline-value">\${fmt(total)} total</span>
           </div>
           <div class="sparkline" id="spark">
             <svg viewBox="0 0 \${w} \${h}" preserveAspectRatio="none">
               <path class="spark-area" d="\${area}"/>
               <path class="spark-line" d="\${line}"/>
-              \${pts.map((p, i) => \`<circle class="spark-dot" cx="\${p.x}" cy="\${p.y}" r="3" data-i="\${i}"/>\`).join('')}
+              \${pts.map((p, i) => \`<circle class="spark-dot" cx="\${p.x}" cy="\${p.y}" r="4" data-i="\${i}"/>\`).join('')}
             </svg>
             <div class="spark-tooltip" id="sparkTip"></div>
           </div>
@@ -341,15 +396,15 @@ export function dashboardHtml(isAuthenticated: boolean, needsSetup: boolean): st
         
         <div class="stats">
           <div class="stat">
-            <div class="stat-label">Calls</div>
+            <div class="stat-label">Total Calls</div>
             <div class="stat-value">\${fmt(s.total_calls || 0)}</div>
           </div>
           <div class="stat">
-            <div class="stat-label">Output</div>
+            <div class="stat-label">Output Tokens</div>
             <div class="stat-value">\${fmt(s.total_completion_tokens || 0)}</div>
           </div>
           <div class="stat">
-            <div class="stat-label">Input</div>
+            <div class="stat-label">Input Tokens</div>
             <div class="stat-value">\${fmt(s.total_prompt_tokens || 0)}</div>
           </div>
           <div class="stat">
@@ -370,7 +425,7 @@ export function dashboardHtml(isAuthenticated: boolean, needsSetup: boolean): st
                 <tbody>
                   \${state.sources.map(s => \`
                     <tr>
-                      <td><span class="badge \${s.source === 'Claude Code' ? 'badge-amber' : s.source === 'OpenClaw' ? 'badge-blue' : 'badge-gray'}">\${s.source}</span></td>
+                      <td><span class="badge \${s.source === 'Claude Code' ? 'badge-amber' : s.source === 'OpenClaw' ? 'badge-accent' : 'badge-gray'}">\${s.source}</span></td>
                       <td class="text-right mono">\${fmt(s.calls)}</td>
                       <td class="text-right mono">\${fmt(s.tokens)}</td>
                     </tr>
@@ -400,7 +455,7 @@ export function dashboardHtml(isAuthenticated: boolean, needsSetup: boolean): st
         </div>
         
         <div class="section">
-          <div class="section-title">Recent</div>
+          <div class="section-title">Recent Activity</div>
           <div class="table-wrap">
             <table>
               <thead>
@@ -408,16 +463,16 @@ export function dashboardHtml(isAuthenticated: boolean, needsSetup: boolean): st
                   <th>Time</th>
                   <th>Source</th>
                   <th>Model</th>
-                  <th class="text-right">In</th>
-                  <th class="text-right">Out</th>
+                  <th class="text-right">Input</th>
+                  <th class="text-right">Output</th>
                   <th class="text-right">Duration</th>
                 </tr>
               </thead>
               <tbody>
                 \${state.recent.map(r => \`
                   <tr>
-                    <td class="mono" style="color:var(--text-dim)">\${r.timestamp?.slice(11,16) || ''}</td>
-                    <td><span class="badge \${r.source === 'Claude Code' ? 'badge-amber' : r.source === 'OpenClaw' ? 'badge-blue' : 'badge-gray'}">\${r.source || '-'}</span></td>
+                    <td class="mono">\${r.timestamp?.slice(11,16) || ''}</td>
+                    <td><span class="badge \${r.source === 'Claude Code' ? 'badge-amber' : r.source === 'OpenClaw' ? 'badge-accent' : 'badge-gray'}">\${r.source || '-'}</span></td>
                     <td><span class="dot" style="background:\${getColor(r.model)}"></span>\${r.model}</td>
                     <td class="text-right mono">\${fmt(r.prompt_tokens)}</td>
                     <td class="text-right mono">\${fmt(r.completion_tokens)}</td>
@@ -435,9 +490,9 @@ export function dashboardHtml(isAuthenticated: boolean, needsSetup: boolean): st
       return \`
         <div class="login-wrap">
           <div class="login-card">
-            <div class="login-title">\${state.needsSetup ? 'Set Password' : 'Login'}</div>
+            <div class="login-title">\${state.needsSetup ? 'Set Password' : 'Dashboard Login'}</div>
             <form id="loginForm">
-              <input type="password" class="form-input" id="password" placeholder="\${state.needsSetup ? 'Choose a password' : 'Password'}" autocomplete="current-password">
+              <input type="password" class="form-input" id="password" placeholder="\${state.needsSetup ? 'Choose a password' : 'Enter password'}" autocomplete="current-password">
               \${state.needsSetup ? '<input type="password" class="form-input" id="confirmPassword" placeholder="Confirm password">' : ''}
               <button type="submit" class="btn-submit">\${state.needsSetup ? 'Set Password' : 'Login'}</button>
               <div id="loginError" class="error-msg"></div>
@@ -469,7 +524,7 @@ export function dashboardHtml(isAuthenticated: boolean, needsSetup: boolean): st
           const rect = e.target.getBoundingClientRect();
           const sparkRect = spark.getBoundingClientRect();
           tip.style.left = (rect.left - sparkRect.left) + 'px';
-          tip.style.top = (rect.top - sparkRect.top - 24) + 'px';
+          tip.style.top = (rect.top - sparkRect.top - 28) + 'px';
         });
         dot.addEventListener('mouseleave', () => { tip.style.opacity = '0'; });
       });
