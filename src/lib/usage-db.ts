@@ -32,7 +32,7 @@ export function getUsageDb(): Database {
     -- Usage log table
     CREATE TABLE IF NOT EXISTS usage_log (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
-      timestamp TEXT DEFAULT (datetime('now')),
+      timestamp TEXT DEFAULT (datetime('now', 'localtime')),
       model TEXT NOT NULL,
       prompt_tokens INTEGER DEFAULT 0,
       completion_tokens INTEGER DEFAULT 0,
@@ -58,7 +58,7 @@ export function getUsageDb(): Database {
     CREATE TABLE IF NOT EXISTS login_attempts (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       ip TEXT NOT NULL,
-      timestamp TEXT DEFAULT (datetime('now')),
+      timestamp TEXT DEFAULT (datetime('now', 'localtime')),
       success INTEGER DEFAULT 0
     );
 
