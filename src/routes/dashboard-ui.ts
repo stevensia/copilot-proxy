@@ -107,41 +107,29 @@ export function dashboardHtml(isAuthenticated: boolean, needsSetup: boolean): st
       min-height: 200px;
     }
     .chart-title { font-weight: 600; margin-bottom: 15px; }
-    .bar-chart { display: flex; align-items: flex-end; gap: 4px; height: 150px; }
-    .bar {
-      flex: 1;
-      background: linear-gradient(180deg, #667eea 0%, #764ba2 100%);
-      border-radius: 4px 4px 0 0;
-      min-width: 8px;
-      position: relative;
-      transition: all 0.3s;
-    }
-    .bar:hover { opacity: 0.8; }
-    .bar-label {
+    
+    /* Line chart */
+    .line-chart { height: 120px; position: relative; }
+    .line-chart svg { width: 100%; height: 100%; }
+    .line-path { fill: none; stroke: #667eea; stroke-width: 2; }
+    .area-path { fill: url(#areaGradient); opacity: 0.3; }
+    .chart-dot { fill: #667eea; cursor: pointer; }
+    .chart-dot:hover { fill: #764ba2; r: 5; }
+    .chart-labels { display: flex; justify-content: space-between; margin-top: 5px; }
+    .chart-labels span { font-size: 0.65rem; color: #999; }
+    .chart-tooltip {
       position: absolute;
-      bottom: -20px;
-      left: 50%;
-      transform: translateX(-50%);
-      font-size: 0.65rem;
-      color: #999;
-      white-space: nowrap;
-    }
-    .bar-tooltip {
-      position: absolute;
-      top: -30px;
-      left: 50%;
-      transform: translateX(-50%);
       background: #333;
       color: white;
       padding: 4px 8px;
       border-radius: 4px;
       font-size: 0.75rem;
       white-space: nowrap;
+      pointer-events: none;
       opacity: 0;
       transition: opacity 0.2s;
-      pointer-events: none;
+      z-index: 10;
     }
-    .bar:hover .bar-tooltip { opacity: 1; }
     
     /* Login form */
     .login-container {
@@ -209,7 +197,7 @@ export function dashboardHtml(isAuthenticated: boolean, needsSetup: boolean): st
       .time-filter { justify-content: flex-start; gap: 5px; }
       .time-filter .btn { padding: 6px 10px; font-size: 0.8rem; }
       .chart-container { padding: 12px; min-height: 150px; }
-      .bar-chart { height: 120px; }
+      .line-chart { height: 100px; }
     }
     @media (min-width: 601px) {
       .cards { grid-template-columns: repeat(4, 1fr); }
@@ -365,9 +353,7 @@ export function dashboardHtml(isAuthenticated: boolean, needsSetup: boolean): st
 
         <div class="chart-container">
           <div class="chart-title">📈 Hourly Usage</div>
-          <div class="bar-chart">
-            \${renderHourlyChart()}
-          </div>
+          \${renderHourlyChart()}
         </div>
 
         <div class="two-col">
@@ -453,18 +439,74 @@ export function dashboardHtml(isAuthenticated: boolean, needsSetup: boolean): st
     function renderHourlyChart() {
       if (!state.hourly.length) return '<div class="text-muted">No data</div>';
       
-      const maxTokens = Math.max(...state.hourly.map(h => h.tokens), 1);
+      const data = state.hourly;
+      const maxTokens = Math.max(...data.map(h => h.tokens), 1);
+      const width = 100;
+      const height = 100;
+      const padding = 5;
       
-      return state.hourly.map(h => {
-        const height = Math.max((h.tokens / maxTokens) * 100, 2);
-        const label = h.hour.slice(11, 16); // HH:MM
-        return \`
-          <div class="bar" style="height: \${height}%">
-            <div class="bar-tooltip">\${formatNumber(h.tokens)} tokens / \${h.calls} calls</div>
-            <div class="bar-label">\${label}</div>
-          </div>
-        \`;
-      }).join('');
+      // Generate path points
+      const points = data.map((h, i) => {
+        const x = padding + (i / (data.length - 1 || 1)) * (width - padding * 2);
+        const y = height - padding - (h.tokens / maxTokens) * (height - padding * 2);
+        return { x, y, data: h };
+      });
+      
+      // Create line path
+      const linePath = points.map((p, i) => (i === 0 ? 'M' : 'L') + p.x + ',' + p.y).join(' ');
+      
+      // Create area path (for gradient fill)
+      const areaPath = linePath + ' L' + points[points.length-1].x + ',' + (height-padding) + ' L' + points[0].x + ',' + (height-padding) + ' Z';
+      
+      // Get first, middle, and last labels
+      const labels = [data[0]?.hour?.slice(11,16), data[Math.floor(data.length/2)]?.hour?.slice(11,16), data[data.length-1]?.hour?.slice(11,16)];
+      
+      return \`
+        <div class="line-chart" id="hourlyChart">
+          <svg viewBox="0 0 \${width} \${height}" preserveAspectRatio="none">
+            <defs>
+              <linearGradient id="areaGradient" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stop-color="#667eea"/>
+                <stop offset="100%" stop-color="#667eea" stop-opacity="0"/>
+              </linearGradient>
+            </defs>
+            <path class="area-path" d="\${areaPath}"/>
+            <path class="line-path" d="\${linePath}"/>
+            \${points.map((p, i) => \`<circle class="chart-dot" cx="\${p.x}" cy="\${p.y}" r="3" data-idx="\${i}"/>\`).join('')}
+          </svg>
+          <div class="chart-tooltip" id="chartTooltip"></div>
+        </div>
+        <div class="chart-labels">
+          <span>\${labels[0] || ''}</span>
+          <span>\${labels[1] || ''}</span>
+          <span>\${labels[2] || ''}</span>
+        </div>
+      \`;
+    }
+    
+    // Setup tooltip for chart
+    function setupChartTooltip() {
+      const chart = document.getElementById('hourlyChart');
+      const tooltip = document.getElementById('chartTooltip');
+      if (!chart || !tooltip) return;
+      
+      chart.querySelectorAll('.chart-dot').forEach(dot => {
+        dot.addEventListener('mouseenter', (e) => {
+          const idx = parseInt(e.target.dataset.idx);
+          const h = state.hourly[idx];
+          if (!h) return;
+          tooltip.textContent = h.hour.slice(11,16) + ': ' + formatNumber(h.tokens) + ' tokens';
+          tooltip.style.opacity = '1';
+          const rect = e.target.getBoundingClientRect();
+          const chartRect = chart.getBoundingClientRect();
+          tooltip.style.left = (rect.left - chartRect.left + rect.width/2) + 'px';
+          tooltip.style.top = (rect.top - chartRect.top - 25) + 'px';
+          tooltip.style.transform = 'translateX(-50%)';
+        });
+        dot.addEventListener('mouseleave', () => {
+          tooltip.style.opacity = '0';
+        });
+      });
     }
 
     function render() {
@@ -474,6 +516,7 @@ export function dashboardHtml(isAuthenticated: boolean, needsSetup: boolean): st
         setupLoginForm();
       } else {
         app.innerHTML = renderDashboard();
+        setupChartTooltip();
       }
     }
 
