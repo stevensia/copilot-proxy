@@ -86,8 +86,8 @@ export function logUsage(entry: UsageLogEntry): void {
   try {
     const db = getUsageDb()
     db.prepare(`
-      INSERT INTO usage_log (model, prompt_tokens, completion_tokens, total_tokens, endpoint, duration_ms, client_ip, user_agent)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO usage_log (timestamp, model, prompt_tokens, completion_tokens, total_tokens, endpoint, duration_ms, client_ip, user_agent)
+      VALUES (datetime('now', 'localtime'), ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
       entry.model,
       entry.prompt_tokens,
