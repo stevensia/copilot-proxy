@@ -26,7 +26,7 @@ export function getUsageDb(): Database {
 
   db = new Database(DB_PATH)
   db.exec('PRAGMA journal_mode=WAL')
-  
+
   // Create tables
   db.exec(`
     -- Usage log table
@@ -118,17 +118,36 @@ export function getStats(since?: string): UsageStats {
   const db = getUsageDb()
   const whereClause = since ? 'WHERE timestamp >= ?' : ''
   const params = since ? [since] : []
-  
+
+  // For /v1/messages endpoint (Claude sessions), prompt_tokens is cumulative.
+  // Calculate incremental prompt tokens using window function.
+  // For other endpoints, use raw values.
   const result = db.prepare(`
-    SELECT 
+    WITH incremental AS (
+      SELECT
+        endpoint,
+        prompt_tokens,
+        completion_tokens,
+        total_tokens,
+        CASE
+          WHEN endpoint = '/v1/messages' THEN
+            prompt_tokens - COALESCE(LAG(prompt_tokens) OVER (
+              PARTITION BY endpoint, user_agent
+              ORDER BY timestamp, id
+            ), 0)
+          ELSE prompt_tokens
+        END as prompt_delta
+      FROM usage_log
+      ${whereClause}
+    )
+    SELECT
       COUNT(*) as total_calls,
-      COALESCE(SUM(total_tokens), 0) as total_tokens,
-      COALESCE(SUM(prompt_tokens), 0) as total_prompt_tokens,
+      COALESCE(SUM(CASE WHEN prompt_delta > 0 THEN prompt_delta ELSE prompt_tokens END + completion_tokens), 0) as total_tokens,
+      COALESCE(SUM(CASE WHEN prompt_delta > 0 THEN prompt_delta ELSE prompt_tokens END), 0) as total_prompt_tokens,
       COALESCE(SUM(completion_tokens), 0) as total_completion_tokens
-    FROM usage_log
-    ${whereClause}
+    FROM incremental
   `).get(...params) as UsageStats
-  
+
   return result
 }
 
@@ -145,9 +164,9 @@ export function getHourlyUsage(since?: string): HourlyUsage[] {
   const db = getUsageDb()
   const whereClause = since ? 'WHERE timestamp >= ?' : ''
   const params = since ? [since] : []
-  
+
   return db.prepare(`
-    SELECT 
+    SELECT
       strftime('%Y-%m-%d %H:00', timestamp) as hour,
       COUNT(*) as calls,
       SUM(total_tokens) as tokens
@@ -173,9 +192,9 @@ export function getDailyUsage(since?: string): DailyUsage[] {
   const db = getUsageDb()
   const whereClause = since ? 'WHERE timestamp >= ?' : ''
   const params = since ? [since] : []
-  
+
   return db.prepare(`
-    SELECT 
+    SELECT
       date(timestamp) as date,
       COUNT(*) as calls,
       SUM(total_tokens) as tokens,
@@ -203,16 +222,35 @@ export function getModelUsage(since?: string): ModelUsage[] {
   const db = getUsageDb()
   const whereClause = since ? 'WHERE timestamp >= ?' : ''
   const params = since ? [since] : []
-  
+
+  // Calculate incremental prompt tokens for /v1/messages endpoint
   return db.prepare(`
+    WITH incremental AS (
+      SELECT 
+        model,
+        endpoint,
+        user_agent,
+        prompt_tokens,
+        completion_tokens,
+        total_tokens,
+        CASE 
+          WHEN endpoint = '/v1/messages' THEN
+            prompt_tokens - COALESCE(LAG(prompt_tokens) OVER (
+              PARTITION BY endpoint, user_agent 
+              ORDER BY timestamp, id
+            ), 0)
+          ELSE prompt_tokens
+        END as prompt_delta
+      FROM usage_log
+      ${whereClause}
+    )
     SELECT 
       model,
       COUNT(*) as calls,
-      SUM(total_tokens) as tokens,
-      SUM(prompt_tokens) as prompt_tokens,
+      SUM(CASE WHEN prompt_delta > 0 THEN prompt_delta ELSE prompt_tokens END + completion_tokens) as tokens,
+      SUM(CASE WHEN prompt_delta > 0 THEN prompt_delta ELSE prompt_tokens END) as prompt_tokens,
       SUM(completion_tokens) as completion_tokens
-    FROM usage_log
-    ${whereClause}
+    FROM incremental
     GROUP BY model
     ORDER BY tokens DESC
   `).all(...params) as ModelUsage[]
@@ -248,7 +286,7 @@ export function getRecentUsage(limit: number = 50): RecentUsage[] {
 export function getTodayStats(): UsageStats {
   const db = getUsageDb()
   return db.prepare(`
-    SELECT 
+    SELECT
       COUNT(*) as total_calls,
       COALESCE(SUM(total_tokens), 0) as total_tokens,
       COALESCE(SUM(prompt_tokens), 0) as total_prompt_tokens,
@@ -265,19 +303,19 @@ export function exportToCsv(since?: string): string {
   const db = getUsageDb()
   const whereClause = since ? 'WHERE timestamp >= ?' : ''
   const params = since ? [since] : []
-  
+
   const rows = db.prepare(`
     SELECT timestamp, model, prompt_tokens, completion_tokens, total_tokens, endpoint, duration_ms
     FROM usage_log
     ${whereClause}
     ORDER BY timestamp DESC
   `).all(...params) as any[]
-  
+
   const header = 'timestamp,model,prompt_tokens,completion_tokens,total_tokens,endpoint,duration_ms'
-  const lines = rows.map(r => 
+  const lines = rows.map(r =>
     `${r.timestamp},${r.model},${r.prompt_tokens},${r.completion_tokens},${r.total_tokens},${r.endpoint || ''},${r.duration_ms || ''}`
   )
-  
+
   return [header, ...lines].join('\n')
 }
 
