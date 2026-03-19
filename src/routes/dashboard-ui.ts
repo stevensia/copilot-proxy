@@ -164,10 +164,11 @@ export function dashboardHtml(isAuthenticated: boolean, needsSetup: boolean): st
       background: var(--bg-card);
       border: 1px solid var(--border);
       border-radius: 10px;
-      overflow: hidden;
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
       box-shadow: var(--shadow);
     }
-    table { width: 100%; border-collapse: collapse; }
+    table { width: 100%; border-collapse: collapse; min-width: 480px; }
     th { 
       text-align: left; 
       padding: 12px 16px; 
