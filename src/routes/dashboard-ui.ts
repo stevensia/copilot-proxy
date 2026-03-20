@@ -478,13 +478,14 @@ export function dashboardHtml(isAuthenticated: boolean, needsSetup: boolean): st
           <div class="section-title">By Source</div>
           <div class="table-wrap">
             <table>
-              <thead><tr><th>Source</th><th class="text-right">Calls</th><th class="text-right">Output</th></tr></thead>
+              <thead><tr><th>Source</th><th class="text-right">Calls</th><th class="text-right">Tokens (in/out)</th><th class="text-right">Cost</th></tr></thead>
               <tbody>
                 \${state.sources.map(s => \`
                   <tr>
                     <td><span class="badge \${s.source === 'Claude Code' ? 'badge-amber' : s.source === 'OpenClaw' ? 'badge-accent' : 'badge-gray'}">\${s.source}</span></td>
                     <td class="text-right mono">\${fmt(s.calls)}</td>
-                    <td class="text-right mono">\${fmt(s.tokens)}</td>
+                    <td class="text-right mono">\${fmt(s.prompt_tokens || 0)} / \${fmt(s.completion_tokens || 0)}</td>
+                    <td class="text-right mono" style="color:var(--green)">\${fmtCost(s.cost || 0)}</td>
                   </tr>
                 \`).join('')}
               </tbody>

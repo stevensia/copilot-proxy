@@ -442,6 +442,9 @@ export interface SourceUsage {
   source: string
   calls: number
   tokens: number
+  prompt_tokens: number
+  completion_tokens: number
+  cost: number
 }
 
 export function getSourceUsage(since?: string): SourceUsage[] {
@@ -449,22 +452,65 @@ export function getSourceUsage(since?: string): SourceUsage[] {
   const whereClause = since ? 'WHERE timestamp >= ?' : ''
   const params = since ? [since] : []
 
+  // Calculate incremental prompt tokens (same logic as getModelUsage)
   const rows = db.prepare(`
-    SELECT 
+    WITH incremental AS (
+      SELECT
+        model,
+        endpoint,
+        user_agent,
+        prompt_tokens,
+        completion_tokens,
+        total_tokens,
+        CASE
+          WHEN endpoint = '/v1/messages' THEN
+            prompt_tokens - COALESCE(LAG(prompt_tokens) OVER (
+              PARTITION BY endpoint, user_agent
+              ORDER BY timestamp, id
+            ), 0)
+          ELSE prompt_tokens
+        END as prompt_delta
+      FROM usage_log
+      ${whereClause}
+    )
+    SELECT
+      model,
       user_agent,
       COUNT(*) as calls,
-      SUM(completion_tokens) as tokens
-    FROM usage_log
-    ${whereClause}
-    GROUP BY user_agent
+      SUM(CASE WHEN prompt_delta > 0 THEN prompt_delta ELSE prompt_tokens END + completion_tokens) as tokens,
+      SUM(CASE WHEN prompt_delta > 0 THEN prompt_delta ELSE prompt_tokens END) as prompt_tokens,
+      SUM(completion_tokens) as completion_tokens
+    FROM incremental
+    GROUP BY model, user_agent
     ORDER BY tokens DESC
-  `).all(...params) as { user_agent: string | null, calls: number, tokens: number }[]
+  `).all(...params) as { model: string, user_agent: string | null, calls: number, tokens: number, prompt_tokens: number, completion_tokens: number }[]
 
-  return rows.map(r => ({
-    source: parseSource(r.user_agent) || 'Unknown',
-    calls: r.calls,
-    tokens: r.tokens,
-  }))
+  // Aggregate by source, calculating cost per model first
+  const sourceMap = new Map<string, SourceUsage>()
+  for (const r of rows) {
+    const source = parseSource(r.user_agent) || 'Unknown'
+    const cost = calculateCost(r.model, r.prompt_tokens, r.completion_tokens)
+    const existing = sourceMap.get(source)
+    if (existing) {
+      existing.calls += r.calls
+      existing.tokens += r.tokens
+      existing.prompt_tokens += r.prompt_tokens
+      existing.completion_tokens += r.completion_tokens
+      existing.cost += cost
+    }
+    else {
+      sourceMap.set(source, {
+        source,
+        calls: r.calls,
+        tokens: r.tokens,
+        prompt_tokens: r.prompt_tokens,
+        completion_tokens: r.completion_tokens,
+        cost,
+      })
+    }
+  }
+
+  return Array.from(sourceMap.values()).sort((a, b) => b.tokens - a.tokens)
 }
 
 /**
