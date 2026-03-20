@@ -451,14 +451,9 @@ export function dashboardHtml(isAuthenticated: boolean, needsSetup: boolean): st
 
         <div class="stats">
           <div class="stat">
-            <div class="stat-label">💰 Today's Cost</div>
-            <div class="stat-value">\${fmtCost(todayCost)}</div>
-            <div class="stat-sub">\${todayDelta}\${todayDelta ? ' · ' : ''}\${fmt(todayCalls)} calls</div>
-          </div>
-          <div class="stat">
-            <div class="stat-label">📊 Period Cost</div>
-            <div class="stat-value">\${fmtCost(totalCost)}</div>
-            <div class="stat-sub">avg \${fmtCost(avgPerDay)}/day · \${periodLabel}</div>
+            <div class="stat-label">⚡ Tokens Used</div>
+            <div class="stat-value">\${fmt(totalTokens)}</div>
+            <div class="stat-sub">\${fmt(s.total_prompt_tokens || 0)} in · \${fmt(s.total_completion_tokens || 0)} out</div>
           </div>
           <div class="stat">
             <div class="stat-label">📞 Total Calls</div>
@@ -466,9 +461,14 @@ export function dashboardHtml(isAuthenticated: boolean, needsSetup: boolean): st
             <div class="stat-sub">\${fmt(todayCalls)} today · avg \${fmt(avgPerHr)}/hr</div>
           </div>
           <div class="stat">
-            <div class="stat-label">⚡ Tokens Used</div>
-            <div class="stat-value">\${fmt(totalTokens)}</div>
-            <div class="stat-sub">\${fmt(s.total_prompt_tokens || 0)} in · \${fmt(s.total_completion_tokens || 0)} out</div>
+            <div class="stat-label">📊 Period Cost</div>
+            <div class="stat-value">\${fmtCost(totalCost)}</div>
+            <div class="stat-sub">avg \${fmtCost(avgPerDay)}/day · \${periodLabel}</div>
+          </div>
+          <div class="stat">
+            <div class="stat-label">💰 Today's Cost</div>
+            <div class="stat-value">\${fmtCost(todayCost)}</div>
+            <div class="stat-sub">\${todayDelta}\${todayDelta ? ' · ' : ''}\${fmt(todayCalls)} calls</div>
           </div>
         </div>
 
