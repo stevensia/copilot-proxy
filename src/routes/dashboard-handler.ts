@@ -17,6 +17,7 @@ import {
 } from '../lib/dashboard-auth'
 import {
   exportToCsv,
+  getActivityMetrics,
   getAllPricing,
   getDailyUsage,
   getHostnames,
@@ -27,10 +28,11 @@ import {
   getStats,
   getTodayStats,
   getTotalCost,
+  getYesterdayCost,
   ingestRemoteUsage,
   savePricing,
 } from '../lib/usage-db'
-import { dashboardHtml } from './dashboard-ui'
+import { activityPageHtml, dashboardHtml } from './dashboard-ui'
 
 const COOKIE_NAME = 'copilot_proxy_session'
 
@@ -64,6 +66,15 @@ export function registerDashboardRoutes(app: Hono): void {
     const needsSetup = !isPasswordSet()
 
     return c.html(dashboardHtml(isAuthenticated, needsSetup))
+  })
+
+  // Serve activity page
+  app.get('/dashboard/activity', (c) => {
+    const token = getCookie(c, COOKIE_NAME)
+    const isAuthenticated = !!(token && validateSession(token))
+    const needsSetup = !isPasswordSet()
+
+    return c.html(activityPageHtml(isAuthenticated, needsSetup))
   })
 
   // Check auth status
@@ -177,12 +188,16 @@ export function registerDashboardRoutes(app: Hono): void {
     const stats = getStats(since)
     const today = getTodayStats()
     const totalCost = getTotalCost(since)
+    const yesterdayCost = getYesterdayCost()
+    const periodDays = hours > 0 ? Math.max(1, Math.round(hours / 24)) : null
 
     return c.json({
       stats,
       today,
       hours,
       totalCost,
+      yesterdayCost,
+      periodDays,
     })
   })
 
@@ -246,8 +261,22 @@ export function registerDashboardRoutes(app: Hono): void {
     }
 
     const limit = Math.min(Number(c.req.query('limit')) || 50, 500)
+    const offset = Math.max(Number(c.req.query('offset')) || 0, 0)
 
-    return c.json(getRecentUsage(limit))
+    return c.json(getRecentUsage(limit, offset))
+  })
+
+  // Activity metrics
+  app.get('/dashboard/api/activity-metrics', (c) => {
+    const token = getCookie(c, COOKIE_NAME)
+    if (!token || !validateSession(token)) {
+      return c.json({ error: 'Unauthorized' }, 401)
+    }
+
+    const hours = Number(c.req.query('hours')) || 0
+    const since = getSinceDate(hours)
+
+    return c.json(getActivityMetrics(since))
   })
 
   // Export CSV

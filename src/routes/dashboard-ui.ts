@@ -302,6 +302,9 @@ export function dashboardHtml(isAuthenticated: boolean, needsSetup: boolean): st
       hours: 24,
       stats: null,
       today: null,
+      totalCost: 0,
+      yesterdayCost: 0,
+      periodDays: null,
       hourly: [],
       daily: [],
       models: [],
@@ -338,13 +341,15 @@ export function dashboardHtml(isAuthenticated: boolean, needsSetup: boolean): st
           api('daily?hours=' + state.hours),
           api('models?hours=' + state.hours),
           api('sources?hours=' + state.hours),
-          api('recent?limit=12'),
+          api('recent?limit=5'),
         ]);
-        Object.assign(state, { 
-          stats: statsRes.stats, 
-          today: statsRes.today, 
+        Object.assign(state, {
+          stats: statsRes.stats,
+          today: statsRes.today,
           totalCost: statsRes.totalCost,
-          hourly, daily, models, sources, recent 
+          yesterdayCost: statsRes.yesterdayCost,
+          periodDays: statsRes.periodDays,
+          hourly, daily, models, sources, recent
         });
         render();
       } catch (e) { console.error(e); }
@@ -409,13 +414,38 @@ export function dashboardHtml(isAuthenticated: boolean, needsSetup: boolean): st
       const s = state.stats || {};
       const t = state.today || {};
       const totalCost = state.totalCost || 0;
-      
+      const yesterdayCost = state.yesterdayCost || 0;
+      const periodDays = state.periodDays || 1;
+
       function fmtCost(c) {
         if (c >= 1) return '$' + c.toFixed(2);
         if (c >= 0.01) return '$' + c.toFixed(3);
         return '$' + c.toFixed(4);
       }
-      
+
+      // Today vs yesterday percentage
+      const todayCost = t.cost || 0;
+      let todayDelta = '';
+      if (yesterdayCost > 0) {
+        const pct = ((todayCost - yesterdayCost) / yesterdayCost * 100).toFixed(0);
+        const arrow = todayCost >= yesterdayCost ? '↑' : '↓';
+        todayDelta = arrow + Math.abs(pct) + '% vs yesterday';
+      } else if (todayCost > 0) {
+        todayDelta = 'no data yesterday';
+      }
+
+      // Period avg
+      const avgPerDay = periodDays > 0 ? totalCost / periodDays : totalCost;
+      const periodLabel = state.hours > 0 ? periodDays + ' day' + (periodDays > 1 ? 's' : '') : 'all time';
+
+      // Today calls + avg per hour
+      const todayCalls = t.total_calls || 0;
+      const nowHour = new Date().getHours() || 1;
+      const avgPerHr = Math.round(todayCalls / nowHour);
+
+      // Tokens
+      const totalTokens = (s.total_prompt_tokens || 0) + (s.total_completion_tokens || 0);
+
       return \`
         <header>
           <div class="logo">Copilot Proxy</div>
@@ -425,7 +455,7 @@ export function dashboardHtml(isAuthenticated: boolean, needsSetup: boolean): st
             <button class="btn" onclick="logout()">Logout</button>
           </div>
         </header>
-        
+
         <div class="filters">
           \${[1, 6, 24, 168, 0].map(h => \`
             <button class="btn \${state.hours === h ? 'active' : ''}" onclick="setHours(\${h})">
@@ -433,29 +463,32 @@ export function dashboardHtml(isAuthenticated: boolean, needsSetup: boolean): st
             </button>
           \`).join('')}
         </div>
-        
+
         <div class="stats">
           <div class="stat">
-            <div class="stat-label">Total Calls</div>
-            <div class="stat-value">\${fmt(s.total_calls || 0)}</div>
+            <div class="stat-label">💰 Today's Cost</div>
+            <div class="stat-value">\${fmtCost(todayCost)}</div>
+            <div class="stat-sub">\${todayDelta}\${todayDelta ? ' · ' : ''}\${fmt(todayCalls)} calls</div>
           </div>
           <div class="stat">
-            <div class="stat-label">Input Tokens</div>
-            <div class="stat-value">\${fmt(s.total_prompt_tokens || 0)}</div>
-          </div>
-          <div class="stat">
-            <div class="stat-label">Output Tokens</div>
-            <div class="stat-value">\${fmt(s.total_completion_tokens || 0)}</div>
-          </div>
-          <div class="stat">
-            <div class="stat-label">💰 Est. Cost</div>
+            <div class="stat-label">📊 Period Cost</div>
             <div class="stat-value">\${fmtCost(totalCost)}</div>
-            <div class="stat-sub">\${fmtCost(t.cost || 0)} today · \${fmt(t.total_calls || 0)} calls</div>
+            <div class="stat-sub">avg \${fmtCost(avgPerDay)}/day · \${periodLabel}</div>
+          </div>
+          <div class="stat">
+            <div class="stat-label">📞 Total Calls</div>
+            <div class="stat-value">\${fmt(s.total_calls || 0)}</div>
+            <div class="stat-sub">\${fmt(todayCalls)} today · avg \${fmt(avgPerHr)}/hr</div>
+          </div>
+          <div class="stat">
+            <div class="stat-label">⚡ Tokens Used</div>
+            <div class="stat-value">\${fmt(totalTokens)}</div>
+            <div class="stat-sub">\${fmt(s.total_prompt_tokens || 0)} in · \${fmt(s.total_completion_tokens || 0)} out</div>
           </div>
         </div>
-        
+
         \${renderSparkline()}
-        
+
         <div class="grid-2">
           <div class="section">
             <div class="section-title">By Source</div>
@@ -474,7 +507,7 @@ export function dashboardHtml(isAuthenticated: boolean, needsSetup: boolean): st
               </table>
             </div>
           </div>
-          
+
           <div class="section">
             <div class="section-title">By Model</div>
             <div class="table-wrap">
@@ -495,18 +528,18 @@ export function dashboardHtml(isAuthenticated: boolean, needsSetup: boolean): st
             </div>
           </div>
         </div>
-        
+
         <div class="section">
-          <div class="section-title">Recent Activity</div>
+          <div class="section-title" style="display:flex;justify-content:space-between;align-items:center">
+            Recent Activity
+            <a href="/dashboard/activity" class="btn" style="text-decoration:none;font-weight:500;font-size:12px">View All Activity →</a>
+          </div>
           <div class="table-wrap">
             <table>
               <thead>
                 <tr>
                   <th>Time</th>
-                  <th>Source</th>
                   <th>Model</th>
-                  <th class="text-right">Input</th>
-                  <th class="text-right">Output</th>
                   <th class="text-right">Cost</th>
                 </tr>
               </thead>
@@ -514,10 +547,7 @@ export function dashboardHtml(isAuthenticated: boolean, needsSetup: boolean): st
                 \${state.recent.map(r => \`
                   <tr>
                     <td class="mono">\${r.timestamp?.slice(11,16) || ''}</td>
-                    <td><span class="badge \${r.source === 'Claude Code' ? 'badge-amber' : r.source === 'OpenClaw' ? 'badge-accent' : 'badge-gray'}">\${r.source || '-'}</span></td>
                     <td><span class="dot" style="background:\${getColor(r.model)}"></span>\${r.model}</td>
-                    <td class="text-right mono">\${fmt(r.prompt_tokens)}</td>
-                    <td class="text-right mono">\${fmt(r.completion_tokens)}</td>
                     <td class="text-right mono" style="color:var(--green)">\${fmtCost(r.cost || 0)}</td>
                   </tr>
                 \`).join('')}
@@ -617,6 +647,372 @@ export function dashboardHtml(isAuthenticated: boolean, needsSetup: boolean): st
     }
 
     if (state.authenticated) loadData();
+    else render();
+  </script>
+</body>
+</html>`
+}
+
+/**
+ * Activity page - standalone page for browsing all call records
+ */
+export function activityPageHtml(isAuthenticated: boolean, needsSetup: boolean): string {
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Activity - Usage Dashboard</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      min-height: 100vh;
+      font-size: 14px;
+      line-height: 1.5;
+      -webkit-font-smoothing: antialiased;
+      transition: background 0.2s ease, color 0.2s ease;
+    }
+
+    body.theme-light {
+      --bg: #f0f4f8;
+      --bg-card: #ffffff;
+      --bg-hover: #e8eef4;
+      --border: #cdd7e1;
+      --text: #0d2137;
+      --text-muted: #4a5568;
+      --text-dim: #8696a7;
+      --accent: #0078d4;
+      --accent-hover: #106ebe;
+      --green: #107c10;
+      --amber: #ca5010;
+      --shadow: 0 1px 3px rgba(0,0,0,0.06);
+    }
+
+    body.theme-dark {
+      --bg: #0f172a;
+      --bg-card: #1e293b;
+      --bg-hover: #334155;
+      --border: #334155;
+      --text: #f1f5f9;
+      --text-muted: #94a3b8;
+      --text-dim: #64748b;
+      --accent: #38bdf8;
+      --accent-hover: #7dd3fc;
+      --green: #4ade80;
+      --amber: #fbbf24;
+      --shadow: 0 1px 3px rgba(0,0,0,0.3);
+    }
+
+    body { background: var(--bg); color: var(--text); }
+
+    .container { max-width: 700px; margin: 0 auto; padding: 24px 20px; }
+
+    .theme-toggle {
+      position: fixed; top: 20px; right: 20px;
+      width: 40px; height: 40px; border-radius: 10px;
+      border: 1px solid var(--border); background: var(--bg-card);
+      color: var(--text-muted); cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 18px; box-shadow: var(--shadow); z-index: 100;
+    }
+    .theme-toggle:hover { background: var(--bg-hover); color: var(--text); }
+
+    header {
+      display: flex; justify-content: space-between; align-items: center;
+      margin-bottom: 20px; padding-bottom: 16px; border-bottom: 1px solid var(--border);
+    }
+    .logo { font-size: 15px; font-weight: 600; color: var(--text); }
+    .logo a { color: var(--text); text-decoration: none; }
+    .logo a:hover { color: var(--accent); }
+
+    .btn {
+      padding: 7px 14px; font-size: 13px; font-weight: 500;
+      border: 1px solid var(--border); border-radius: 6px;
+      background: var(--bg-card); color: var(--text-muted); cursor: pointer;
+    }
+    .btn:hover { background: var(--bg-hover); color: var(--text); }
+    .btn.active { background: var(--accent); color: white; border-color: var(--accent); }
+
+    /* Metrics bar - horizontal scroll on mobile */
+    .metrics-bar {
+      display: flex; gap: 10px; margin-bottom: 20px;
+      overflow-x: auto; -webkit-overflow-scrolling: touch;
+      padding-bottom: 4px;
+    }
+    .metrics-bar::-webkit-scrollbar { height: 0; }
+    .metric-card {
+      flex: 0 0 auto; min-width: 130px;
+      background: var(--bg-card); border: 1px solid var(--border);
+      border-radius: 10px; padding: 14px 16px; box-shadow: var(--shadow);
+    }
+    .metric-label { font-size: 11px; color: var(--text-dim); font-weight: 500; margin-bottom: 4px; }
+    .metric-value { font-size: 18px; font-weight: 600; color: var(--text); font-variant-numeric: tabular-nums; }
+
+    .filters { display: flex; gap: 6px; margin-bottom: 20px; }
+
+    /* Card list */
+    .call-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 20px; }
+    .call-card {
+      background: var(--bg-card); border: 1px solid var(--border);
+      border-radius: 10px; padding: 14px 16px; box-shadow: var(--shadow);
+    }
+    .call-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+    .call-model { font-weight: 600; font-size: 13px; color: var(--text); }
+    .call-cost { font-weight: 600; font-size: 13px; color: var(--green); font-family: 'SF Mono', monospace; }
+    .call-meta { display: flex; gap: 14px; font-size: 12px; color: var(--text-dim); flex-wrap: wrap; }
+    .call-time { font-size: 12px; color: var(--text-dim); margin-top: 4px; }
+
+    .load-more-wrap { text-align: center; margin-bottom: 24px; }
+    .btn-load {
+      padding: 10px 32px; font-size: 14px; font-weight: 500;
+      border: 1px solid var(--border); border-radius: 8px;
+      background: var(--bg-card); color: var(--text-muted); cursor: pointer;
+    }
+    .btn-load:hover { background: var(--bg-hover); color: var(--text); }
+    .btn-load:disabled { opacity: 0.5; cursor: default; }
+
+    .empty { text-align: center; padding: 40px; color: var(--text-dim); }
+
+    /* Login */
+    .login-wrap { max-width: 340px; margin: 100px auto; }
+    .login-card {
+      background: var(--bg-card); border: 1px solid var(--border);
+      border-radius: 12px; padding: 36px; box-shadow: var(--shadow);
+    }
+    .login-title { font-size: 18px; font-weight: 600; text-align: center; margin-bottom: 28px; color: var(--text); }
+    .form-input {
+      width: 100%; padding: 11px 14px; font-size: 14px;
+      background: var(--bg); border: 1px solid var(--border); border-radius: 8px;
+      color: var(--text); margin-bottom: 14px;
+    }
+    .form-input:focus { outline: none; border-color: var(--accent); }
+    .form-input::placeholder { color: var(--text-dim); }
+    .btn-submit {
+      width: 100%; padding: 11px; font-size: 14px; font-weight: 600;
+      background: var(--accent); color: white; border: none; border-radius: 8px; cursor: pointer;
+    }
+    .btn-submit:hover { background: var(--accent-hover); }
+    .error-msg { color: #dc2626; font-size: 13px; text-align: center; margin-top: 14px; }
+
+    @media (max-width: 640px) {
+      .container { padding: 16px 14px; }
+      .metric-card { min-width: 110px; padding: 10px 12px; }
+      .metric-value { font-size: 16px; }
+      .theme-toggle { top: 12px; right: 12px; width: 36px; height: 36px; font-size: 16px; }
+    }
+  </style>
+</head>
+<body class="theme-light">
+  <button class="theme-toggle" id="themeToggle" title="Toggle theme">☀️</button>
+
+  <div class="container" id="app">
+    <div style="text-align:center;padding:60px;color:var(--text-dim)">Loading...</div>
+  </div>
+
+  <script>
+    function setTheme(dark) {
+      document.body.className = dark ? 'theme-dark' : 'theme-light';
+      document.getElementById('themeToggle').textContent = dark ? '🌙' : '☀️';
+      localStorage.setItem('dashboard-theme', dark ? 'dark' : 'light');
+    }
+
+    document.getElementById('themeToggle').addEventListener('click', () => {
+      setTheme(document.body.classList.contains('theme-light'));
+    });
+
+    const saved = localStorage.getItem('dashboard-theme');
+    if (saved) setTheme(saved === 'dark');
+    else if (window.matchMedia('(prefers-color-scheme: dark)').matches) setTheme(true);
+
+    const state = {
+      authenticated: ${isAuthenticated},
+      needsSetup: ${needsSetup},
+      hours: 24,
+      metrics: null,
+      records: [],
+      offset: 0,
+      loading: false,
+      hasMore: true,
+    };
+
+    const PAGE_SIZE = 50;
+
+    function fmt(n) {
+      if (n >= 1000000) return (n / 1000000).toFixed(1) + 'M';
+      if (n >= 1000) return (n / 1000).toFixed(1) + 'K';
+      return n.toString();
+    }
+
+    function fmtCost(c) {
+      if (c >= 1) return '$' + c.toFixed(2);
+      if (c >= 0.01) return '$' + c.toFixed(3);
+      return '$' + c.toFixed(4);
+    }
+
+    function fmtDuration(ms) {
+      if (!ms) return '-';
+      if (ms < 1000) return ms + 'ms';
+      return (ms / 1000).toFixed(1) + 's';
+    }
+
+    async function api(endpoint) {
+      const res = await fetch('/dashboard/api/' + endpoint, { credentials: 'include' });
+      if (res.status === 401) { state.authenticated = false; render(); throw new Error('Unauthorized'); }
+      return res.json();
+    }
+
+    async function loadMetrics() {
+      try {
+        state.metrics = await api('activity-metrics?hours=' + state.hours);
+      } catch (e) { console.error(e); }
+    }
+
+    async function loadRecords(append) {
+      if (state.loading) return;
+      state.loading = true;
+      render();
+      try {
+        const offset = append ? state.offset : 0;
+        const data = await api('recent?limit=' + PAGE_SIZE + '&offset=' + offset);
+        if (append) {
+          state.records = state.records.concat(data);
+        } else {
+          state.records = data;
+        }
+        state.offset = (append ? state.offset : 0) + data.length;
+        state.hasMore = data.length === PAGE_SIZE;
+      } catch (e) { console.error(e); }
+      state.loading = false;
+      render();
+    }
+
+    async function loadAll() {
+      state.offset = 0;
+      state.hasMore = true;
+      await Promise.all([loadMetrics(), loadRecords(false)]);
+      render();
+    }
+
+    function setHours(h) {
+      state.hours = h;
+      loadAll();
+    }
+
+    function renderActivity() {
+      const m = state.metrics || {};
+
+      return \`
+        <header>
+          <div class="logo"><a href="/dashboard">← Dashboard</a> / Activity</div>
+        </header>
+
+        <div class="metrics-bar">
+          <div class="metric-card">
+            <div class="metric-label">📊 Total Calls</div>
+            <div class="metric-value">\${fmt(m.totalCalls || 0)}</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-label">💰 Total Cost</div>
+            <div class="metric-value">\${fmtCost(m.totalCost || 0)}</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-label">⏱️ Avg Response</div>
+            <div class="metric-value">\${fmtDuration(m.avgDurationMs)}</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-label">🏷️ Top Model</div>
+            <div class="metric-value" style="font-size:13px">\${m.topModel || '-'}</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-label">📈 Peak Hour</div>
+            <div class="metric-value">\${m.peakHour || '-'}</div>
+          </div>
+        </div>
+
+        <div class="filters">
+          \${[1, 6, 24, 168, 0].map(h => \`
+            <button class="btn \${state.hours === h ? 'active' : ''}" onclick="setHours(\${h})">
+              \${h === 0 ? 'All' : h === 168 ? '7d' : h + 'h'}
+            </button>
+          \`).join('')}
+        </div>
+
+        \${state.records.length === 0 && !state.loading ? '<div class="empty">No activity records</div>' : ''}
+
+        <div class="call-list">
+          \${state.records.map(r => \`
+            <div class="call-card">
+              <div class="call-top">
+                <span class="call-model">\${r.model}</span>
+                <span class="call-cost">\${fmtCost(r.cost || 0)}</span>
+              </div>
+              <div class="call-meta">
+                \${r.source ? '<span>🏷 ' + r.source + '</span>' : ''}
+                \${r.duration_ms ? '<span>⏱ ' + fmtDuration(r.duration_ms) + '</span>' : ''}
+                <span>📥 \${fmt(r.prompt_tokens)} in</span>
+                <span>📤 \${fmt(r.completion_tokens)} out</span>
+              </div>
+              <div class="call-time">\${r.timestamp?.slice(0, 16).replace('T', ' ') || ''}</div>
+            </div>
+          \`).join('')}
+        </div>
+
+        \${state.hasMore ? '<div class="load-more-wrap"><button class="btn-load" onclick="loadMore()" ' + (state.loading ? 'disabled' : '') + '>' + (state.loading ? 'Loading...' : 'Load More') + '</button></div>' : ''}
+      \`;
+    }
+
+    function renderLogin() {
+      return \`
+        <div class="login-wrap">
+          <div class="login-card">
+            <div class="login-title">\${state.needsSetup ? 'Set Password' : 'Dashboard Login'}</div>
+            <form id="loginForm">
+              <input type="password" class="form-input" id="password" placeholder="\${state.needsSetup ? 'Choose a password' : 'Enter password'}" autocomplete="current-password">
+              \${state.needsSetup ? '<input type="password" class="form-input" id="confirmPassword" placeholder="Confirm password">' : ''}
+              <button type="submit" class="btn-submit">\${state.needsSetup ? 'Set Password' : 'Login'}</button>
+              <div id="loginError" class="error-msg"></div>
+            </form>
+          </div>
+        </div>
+      \`;
+    }
+
+    function render() {
+      document.getElementById('app').innerHTML = state.authenticated ? renderActivity() : renderLogin();
+      if (!state.authenticated) setupLoginForm();
+    }
+
+    function setupLoginForm() {
+      const form = document.getElementById('loginForm');
+      if (!form) return;
+      form.onsubmit = async (e) => {
+        e.preventDefault();
+        const pw = document.getElementById('password').value;
+        const err = document.getElementById('loginError');
+        if (state.needsSetup) {
+          const confirm = document.getElementById('confirmPassword').value;
+          if (pw !== confirm) { err.textContent = 'Passwords do not match'; return; }
+          if (pw.length < 4) { err.textContent = 'Password too short'; return; }
+        }
+        try {
+          const res = await fetch('/dashboard/api/' + (state.needsSetup ? 'setup' : 'login'), {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ password: pw }),
+            credentials: 'include'
+          });
+          const data = await res.json();
+          if (data.success) { state.authenticated = true; state.needsSetup = false; loadAll(); }
+          else err.textContent = data.error || 'Login failed';
+        } catch (e) { err.textContent = 'Network error'; }
+      };
+    }
+
+    function loadMore() { loadRecords(true); }
+
+    if (state.authenticated) loadAll();
     else render();
   </script>
 </body>

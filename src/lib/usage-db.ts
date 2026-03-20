@@ -495,14 +495,14 @@ function parseSource(userAgent: string | null): string | null {
   return userAgent.split('/')[0] || userAgent
 }
 
-export function getRecentUsage(limit: number = 50): RecentUsage[] {
+export function getRecentUsage(limit: number = 50, offset: number = 0): RecentUsage[] {
   const db = getUsageDb()
   const rows = db.prepare(`
     SELECT id, timestamp, model, prompt_tokens, completion_tokens, total_tokens, endpoint, duration_ms, user_agent
     FROM usage_log
     ORDER BY timestamp DESC
-    LIMIT ?
-  `).all(limit) as (Omit<RecentUsage, 'source' | 'cost'> & { user_agent: string | null })[]
+    LIMIT ? OFFSET ?
+  `).all(limit, offset) as (Omit<RecentUsage, 'source' | 'cost'> & { user_agent: string | null })[]
 
   return rows.map(r => ({
     id: r.id,
@@ -589,6 +589,89 @@ export function exportToCsv(since?: string): string {
   )
 
   return [header, ...lines].join('\n')
+}
+
+/**
+ * Get yesterday's cost (same time window as today so far)
+ * e.g., if it's 3pm today, get yesterday's cost from midnight to 3pm
+ */
+export function getYesterdayCost(): number {
+  const db = getUsageDb()
+  const now = new Date()
+  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+  const elapsedMs = now.getTime() - todayStart.getTime()
+
+  const yesterdayStart = new Date(todayStart.getTime() - 24 * 60 * 60 * 1000)
+  const yesterdayEnd = new Date(yesterdayStart.getTime() + elapsedMs)
+
+  const sinceStr = yesterdayStart.toISOString().replace('T', ' ').slice(0, 19)
+  const untilStr = yesterdayEnd.toISOString().replace('T', ' ').slice(0, 19)
+
+  const modelStats = db.prepare(`
+    SELECT model, SUM(prompt_tokens) as prompt, SUM(completion_tokens) as completion
+    FROM usage_log
+    WHERE timestamp >= ? AND timestamp <= ?
+    GROUP BY model
+  `).all(sinceStr, untilStr) as { model: string, prompt: number, completion: number }[]
+
+  return modelStats.reduce((sum, m) => sum + calculateCost(m.model, m.prompt, m.completion), 0)
+}
+
+/**
+ * Get activity metrics for the activity page
+ */
+export interface ActivityMetrics {
+  totalCalls: number
+  totalCost: number
+  avgDurationMs: number | null
+  topModel: string | null
+  peakHour: string | null
+}
+
+export function getActivityMetrics(since?: string): ActivityMetrics {
+  const db = getUsageDb()
+  const whereClause = since ? 'WHERE timestamp >= ?' : ''
+  const params = since ? [since] : []
+
+  // Basic counts
+  const basic = db.prepare(`
+    SELECT
+      COUNT(*) as totalCalls,
+      AVG(duration_ms) as avgDurationMs
+    FROM usage_log
+    ${whereClause}
+  `).get(...params) as { totalCalls: number, avgDurationMs: number | null }
+
+  // Total cost
+  const totalCost = getTotalCost(since)
+
+  // Top model by call count
+  const topModelRow = db.prepare(`
+    SELECT model, COUNT(*) as cnt
+    FROM usage_log
+    ${whereClause}
+    GROUP BY model
+    ORDER BY cnt DESC
+    LIMIT 1
+  `).get(...params) as { model: string, cnt: number } | undefined
+
+  // Peak hour
+  const peakHourRow = db.prepare(`
+    SELECT strftime('%H:00', timestamp) as hr, COUNT(*) as cnt
+    FROM usage_log
+    ${whereClause}
+    GROUP BY hr
+    ORDER BY cnt DESC
+    LIMIT 1
+  `).get(...params) as { hr: string, cnt: number } | undefined
+
+  return {
+    totalCalls: basic.totalCalls,
+    totalCost,
+    avgDurationMs: basic.avgDurationMs ? Math.round(basic.avgDurationMs) : null,
+    topModel: topModelRow?.model ?? null,
+    peakHour: peakHourRow?.hr ?? null,
+  }
 }
 
 /**
