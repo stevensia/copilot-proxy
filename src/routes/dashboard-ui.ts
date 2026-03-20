@@ -123,8 +123,8 @@ export function dashboardHtml(isAuthenticated: boolean, needsSetup: boolean): st
     /* Time Filter */
     .filters { display: flex; gap: 6px; margin-bottom: 24px; }
     
-    /* Sparkline */
-    .sparkline-wrap {
+    /* Bar Chart */
+    .chart-wrap {
       background: var(--bg-card);
       border: 1px solid var(--border);
       border-radius: 10px;
@@ -132,40 +132,33 @@ export function dashboardHtml(isAuthenticated: boolean, needsSetup: boolean): st
       margin-bottom: 24px;
       box-shadow: var(--shadow);
     }
-    .sparkline-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
-    .sparkline-title { font-size: 13px; color: var(--text-muted); font-weight: 500; }
-    .sparkline-value { font-size: 13px; color: var(--text-dim); }
-    .sparkline { height: 64px; position: relative; }
-    .sparkline svg { width: 100%; height: 100%; }
-    .spark-line { fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
-    .spark-line-in { stroke: var(--amber); }
-    .spark-line-out { stroke: var(--accent); }
-    .spark-area { opacity: 0.08; }
-    .spark-area-in { fill: var(--amber); }
-    .spark-area-out { fill: var(--accent); }
-    .spark-dot { opacity: 0; transition: opacity 0.15s; }
-    .spark-dot-in { fill: var(--amber); }
-    .spark-dot-out { fill: var(--accent); }
-    .sparkline:hover .spark-dot { opacity: 1; }
-    .spark-label { font-size: 3.5px; font-weight: 600; text-anchor: middle; fill: var(--text-dim); }
-    .spark-legend { display: flex; gap: 16px; align-items: center; }
-    .spark-legend-item { display: flex; align-items: center; gap: 5px; font-size: 12px; color: var(--text-dim); }
-    .spark-legend-dot { width: 8px; height: 8px; border-radius: 50%; }
-    .spark-tooltip {
-      position: absolute;
-      background: var(--text);
-      color: var(--bg-card);
-      padding: 5px 10px;
-      border-radius: 6px;
-      font-size: 12px;
-      font-weight: 500;
-      pointer-events: none;
-      opacity: 0;
-      transition: opacity 0.15s;
-      white-space: nowrap;
+    .chart-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
+    .chart-title { font-size: 13px; color: var(--text-muted); font-weight: 500; }
+    .chart-value { font-size: 13px; color: var(--text-dim); }
+    .chart-bars { display: flex; align-items: flex-end; gap: 2px; height: 100px; position: relative; }
+    .chart-bar {
+      flex: 1; display: flex; flex-direction: column; justify-content: flex-end;
+      min-width: 0; height: 100%; position: relative; cursor: pointer;
     }
-    .sparkline-labels { display: flex; justify-content: space-between; margin-top: 10px; }
-    .sparkline-labels span { font-size: 11px; color: var(--text-dim); }
+    .bar-seg-out { background: var(--accent); border-radius: 3px 3px 0 0; min-height: 0; transition: opacity 0.15s; }
+    .bar-seg-in { background: var(--amber); min-height: 0; transition: opacity 0.15s; }
+    .chart-bar:first-child .bar-seg-in { border-radius: 0 0 3px 3px; }
+    .bar-seg-in { border-radius: 0 0 3px 3px; }
+    .chart-bar:hover .bar-seg-out, .chart-bar:hover .bar-seg-in { opacity: 0.8; }
+    .chart-labels { display: flex; justify-content: space-between; margin-top: 8px; }
+    .chart-labels span { font-size: 11px; color: var(--text-dim); }
+    .chart-legend { display: flex; gap: 16px; align-items: center; margin-top: 10px; }
+    .chart-legend-item { display: flex; align-items: center; gap: 5px; font-size: 12px; color: var(--text-dim); }
+    .chart-legend-dot { width: 8px; height: 8px; border-radius: 2px; }
+    .chart-tooltip {
+      position: absolute; top: -36px; left: 50%; transform: translateX(-50%);
+      background: var(--text); color: var(--bg-card);
+      padding: 4px 8px; border-radius: 5px;
+      font-size: 11px; font-weight: 500;
+      pointer-events: none; opacity: 0; transition: opacity 0.15s;
+      white-space: nowrap; z-index: 10;
+    }
+    .chart-bar:hover .chart-tooltip { opacity: 1; }
     
     /* Tables */
     .section { margin-bottom: 24px; }
@@ -358,56 +351,48 @@ export function dashboardHtml(isAuthenticated: boolean, needsSetup: boolean): st
     function renderSparkline() {
       const data = state.hourly;
       if (!data.length) return '<div style="color:var(--text-dim);padding:24px;text-align:center">No data available</div>';
-      
+
       const inData = data.map(d => d.prompt_tokens || 0);
       const outData = data.map(d => d.completion_tokens || 0);
       const totalIn = inData.reduce((s, v) => s + v, 0);
       const totalOut = outData.reduce((s, v) => s + v, 0);
-      
-      function buildChart(values, cssClass, label, total) {
-        const max = Math.max(...values, 1);
-        const w = 100, h = 100, pad = 5, topPad = 10;
-        const pts = values.map((v, i) => ({
-          x: pad + (i / (values.length - 1 || 1)) * (w - pad * 2),
-          y: h - pad - (v / max) * (h - pad - topPad),
-          v
-        }));
-        
-        const line = pts.map((p, i) => (i === 0 ? 'M' : 'L') + p.x + ',' + p.y).join(' ');
-        const area = line + ' L' + pts[pts.length-1].x + ',' + (h-pad) + ' L' + pts[0].x + ',' + (h-pad) + ' Z';
-        
-        // Show labels for every Nth point to avoid overlap
-        const labelEvery = Math.max(1, Math.floor(values.length / 8));
-        const labels = pts.map((p, i) => {
-          if (i % labelEvery !== 0 && i !== pts.length - 1) return '';
-          return \`<text class="spark-label" x="\${p.x}" y="\${p.y - 3}">\${fmt(p.v)}</text>\`;
-        }).join('');
-        
-        return \`
-          <div class="sparkline-wrap">
-            <div class="sparkline-header">
-              <span class="sparkline-title">\${label}</span>
-              <span class="sparkline-value">\${fmt(total)} total</span>
-            </div>
-            <div class="sparkline" id="spark-\${cssClass}">
-              <svg viewBox="0 0 \${w} \${h}" preserveAspectRatio="none">
-                <path class="spark-area spark-area-\${cssClass}" d="\${area}"/>
-                <path class="spark-line spark-line-\${cssClass}" d="\${line}"/>
-                \${labels}
-                \${pts.map((p, i) => \`<circle class="spark-dot spark-dot-\${cssClass}" cx="\${p.x}" cy="\${p.y}" r="3" data-i="\${i}" data-type="\${cssClass}"/>\`).join('')}
-              </svg>
-              <div class="spark-tooltip" id="sparkTip-\${cssClass}"></div>
-            </div>
-            <div class="sparkline-labels">
-              <span>\${data[0]?.hour?.slice(11,16) || ''}</span>
-              <span>\${data[data.length-1]?.hour?.slice(11,16) || ''}</span>
-            </div>
+      const maxVal = Math.max(...data.map((d, i) => inData[i] + outData[i]), 1);
+
+      // Pick ~6 labels evenly spaced
+      const labelEvery = Math.max(1, Math.floor(data.length / 6));
+
+      const bars = data.map((d, i) => {
+        const inH = (inData[i] / maxVal) * 100;
+        const outH = (outData[i] / maxVal) * 100;
+        const hour = d.hour?.slice(11, 16) || '';
+        return \`<div class="chart-bar">
+          <div class="chart-tooltip">\${hour} · in: \${fmt(inData[i])} · out: \${fmt(outData[i])}</div>
+          <div class="bar-seg-out" style="height:\${outH}%"></div>
+          <div class="bar-seg-in" style="height:\${inH}%"></div>
+        </div>\`;
+      }).join('');
+
+      const labels = data.map((d, i) => {
+        if (i % labelEvery !== 0 && i !== data.length - 1) return '';
+        return d.hour?.slice(11, 16) || '';
+      });
+      // Build label spans: show first, evenly-spaced, and last
+      const labelHtml = labels.map(l => l ? \`<span>\${l}</span>\` : '<span></span>').join('');
+
+      return \`
+        <div class="chart-wrap">
+          <div class="chart-header">
+            <span class="chart-title">📊 Hourly Token Usage</span>
+            <span class="chart-value">\${fmt(totalIn + totalOut)} total</span>
           </div>
-        \`;
-      }
-      
-      return buildChart(inData, 'in', '📥 Input Tokens (Hourly)', totalIn)
-           + buildChart(outData, 'out', '📤 Output Tokens (Hourly)', totalOut);
+          <div class="chart-bars">\${bars}</div>
+          <div class="chart-labels">\${labelHtml}</div>
+          <div class="chart-legend">
+            <div class="chart-legend-item"><div class="chart-legend-dot" style="background:var(--amber)"></div>Input \${fmt(totalIn)}</div>
+            <div class="chart-legend-item"><div class="chart-legend-dot" style="background:var(--accent)"></div>Output \${fmt(totalOut)}</div>
+          </div>
+        </div>
+      \`;
     }
 
     function renderDashboard() {
@@ -512,14 +497,13 @@ export function dashboardHtml(isAuthenticated: boolean, needsSetup: boolean): st
             <div class="section-title">By Model</div>
             <div class="table-wrap">
               <table>
-                <thead><tr><th>Model</th><th class="text-right">Calls</th><th class="text-right">Input</th><th class="text-right">Output</th><th class="text-right">Cost</th></tr></thead>
+                <thead><tr><th>Model</th><th class="text-right">Calls</th><th class="text-right">Tokens</th><th class="text-right">Cost</th></tr></thead>
                 <tbody>
                   \${state.models.map(m => \`
                     <tr>
                       <td><span class="dot" style="background:\${getColor(m.model)}"></span>\${m.model}</td>
                       <td class="text-right mono">\${fmt(m.calls)}</td>
-                      <td class="text-right mono">\${fmt(m.prompt_tokens || 0)}</td>
-                      <td class="text-right mono">\${fmt(m.completion_tokens || 0)}</td>
+                      <td class="text-right mono">\${fmt((m.prompt_tokens || 0) + (m.completion_tokens || 0))}</td>
                       <td class="text-right mono" style="color:var(--green)">\${fmtCost(m.cost || 0)}</td>
                     </tr>
                   \`).join('')}
@@ -577,32 +561,7 @@ export function dashboardHtml(isAuthenticated: boolean, needsSetup: boolean): st
     function render() {
       const app = document.getElementById('app');
       app.innerHTML = state.authenticated ? renderDashboard() : renderLogin();
-      if (state.authenticated) setupSparkTooltip();
-      else setupLoginForm();
-    }
-
-    function setupSparkTooltip() {
-      ['in', 'out'].forEach(type => {
-        const spark = document.getElementById('spark-' + type);
-        const tip = document.getElementById('sparkTip-' + type);
-        if (!spark || !tip) return;
-        
-        spark.querySelectorAll('.spark-dot').forEach(dot => {
-          dot.addEventListener('mouseenter', e => {
-            const i = parseInt(e.target.dataset.i);
-            const d = state.hourly[i];
-            if (!d) return;
-            const val = type === 'in' ? (d.prompt_tokens || 0) : (d.completion_tokens || 0);
-            tip.textContent = d.hour?.slice(11,16) + ': ' + fmt(val);
-            tip.style.opacity = '1';
-            const rect = e.target.getBoundingClientRect();
-            const sparkRect = spark.getBoundingClientRect();
-            tip.style.left = (rect.left - sparkRect.left) + 'px';
-            tip.style.top = (rect.top - sparkRect.top - 28) + 'px';
-          });
-          dot.addEventListener('mouseleave', () => { tip.style.opacity = '0'; });
-        });
-      });
+      if (!state.authenticated) setupLoginForm();
     }
 
     function setupLoginForm() {
