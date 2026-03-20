@@ -475,40 +475,37 @@ export function dashboardHtml(isAuthenticated: boolean, needsSetup: boolean): st
         \${renderSparkline()}
 
         <div class="section">
-          <div class="section-title">By Source</div>
+          <div class="section-title">By Source · By Model</div>
           <div class="table-wrap">
-            <table>
-              <thead><tr><th>Source</th><th class="text-right">Calls</th><th class="text-right">Tokens (in/out)</th><th class="text-right">Cost</th></tr></thead>
-              <tbody>
-                \${state.sources.map(s => \`
-                  <tr>
-                    <td><span class="badge \${s.source === 'Claude Code' ? 'badge-amber' : s.source === 'OpenClaw' ? 'badge-accent' : 'badge-gray'}">\${s.source}</span></td>
-                    <td class="text-right mono">\${fmt(s.calls)}</td>
-                    <td class="text-right mono">\${fmt(s.prompt_tokens || 0)} / \${fmt(s.completion_tokens || 0)}</td>
-                    <td class="text-right mono" style="color:var(--green)">\${fmtCost(s.cost || 0)}</td>
-                  </tr>
-                \`).join('')}
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-        <div class="section">
-          <div class="section-title">By Model</div>
-          <div class="table-wrap">
-            <table>
-              <thead><tr><th>Model</th><th class="text-right">Calls</th><th class="text-right">Tokens (in/out)</th><th class="text-right">Cost</th></tr></thead>
-              <tbody>
-                \${state.models.map(m => \`
-                  <tr>
-                    <td><span class="dot" style="background:\${getColor(m.model)}"></span>\${m.model}</td>
-                    <td class="text-right mono">\${fmt(m.calls)}</td>
-                    <td class="text-right mono">\${fmt(m.prompt_tokens || 0)} / \${fmt(m.completion_tokens || 0)}</td>
-                    <td class="text-right mono" style="color:var(--green)">\${fmtCost(m.cost || 0)}</td>
-                  </tr>
-                \`).join('')}
-              </tbody>
-            </table>
+            <div style="display:flex;flex-direction:column;min-width:max-content">
+              <table>
+                <thead><tr><th>Source</th><th class="text-right">Calls</th><th class="text-right">Tokens (in/out)</th><th class="text-right">Cost</th></tr></thead>
+                <tbody>
+                  \${state.sources.map(s => \`
+                    <tr>
+                      <td><span class="badge \${s.source === 'Claude Code' ? 'badge-amber' : s.source === 'OpenClaw' ? 'badge-accent' : 'badge-gray'}">\${s.source}</span></td>
+                      <td class="text-right mono">\${fmt(s.calls)}</td>
+                      <td class="text-right mono">\${fmt(s.prompt_tokens || 0)} / \${fmt(s.completion_tokens || 0)}</td>
+                      <td class="text-right mono" style="color:var(--green)">\${fmtCost(s.cost || 0)}</td>
+                    </tr>
+                  \`).join('')}
+                </tbody>
+              </table>
+              <div style="height:1px;background:var(--border);margin:8px 0"></div>
+              <table>
+                <thead><tr><th>Model</th><th class="text-right">Calls</th><th class="text-right">Tokens (in/out)</th><th class="text-right">Cost</th></tr></thead>
+                <tbody>
+                  \${state.models.map(m => \`
+                    <tr>
+                      <td><span class="dot" style="background:\${getColor(m.model)}"></span>\${m.model}</td>
+                      <td class="text-right mono">\${fmt(m.calls)}</td>
+                      <td class="text-right mono">\${fmt(m.prompt_tokens || 0)} / \${fmt(m.completion_tokens || 0)}</td>
+                      <td class="text-right mono" style="color:var(--green)">\${fmtCost(m.cost || 0)}</td>
+                    </tr>
+                  \`).join('')}
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
 
