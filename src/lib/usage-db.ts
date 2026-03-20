@@ -4,7 +4,7 @@
  */
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
-import { homedir } from 'node:os'
+import { homedir, hostname } from 'node:os'
 import { join } from 'node:path'
 import { Database } from 'bun:sqlite'
 
@@ -181,13 +181,15 @@ export function getUsageDb(): Database {
       endpoint TEXT,
       duration_ms INTEGER,
       client_ip TEXT,
-      user_agent TEXT
+      user_agent TEXT,
+      hostname TEXT
     );
 
     -- Indexes for common queries
     CREATE INDEX IF NOT EXISTS idx_usage_ts ON usage_log(timestamp);
     CREATE INDEX IF NOT EXISTS idx_usage_model ON usage_log(model);
     CREATE INDEX IF NOT EXISTS idx_usage_date ON usage_log(date(timestamp));
+    CREATE INDEX IF NOT EXISTS idx_usage_hostname ON usage_log(hostname);
 
     -- Auth config table
     CREATE TABLE IF NOT EXISTS auth_config (
@@ -221,14 +223,18 @@ export interface UsageLogEntry {
   duration_ms?: number
   client_ip?: string
   user_agent?: string
+  hostname?: string
 }
+
+// Local hostname for tagging local entries
+const LOCAL_HOSTNAME = hostname()
 
 export function logUsage(entry: UsageLogEntry): void {
   try {
     const db = getUsageDb()
     db.prepare(`
-      INSERT INTO usage_log (timestamp, model, prompt_tokens, completion_tokens, total_tokens, endpoint, duration_ms, client_ip, user_agent)
-      VALUES (datetime('now', 'localtime'), ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO usage_log (timestamp, model, prompt_tokens, completion_tokens, total_tokens, endpoint, duration_ms, client_ip, user_agent, hostname)
+      VALUES (datetime('now', 'localtime'), ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
       entry.model,
       entry.prompt_tokens,
@@ -238,6 +244,7 @@ export function logUsage(entry: UsageLogEntry): void {
       entry.duration_ms ?? null,
       entry.client_ip ?? null,
       entry.user_agent ?? null,
+      entry.hostname ?? LOCAL_HOSTNAME,
     )
   }
   catch (e) {
@@ -592,4 +599,59 @@ export function closeUsageDb(): void {
     db.close()
     db = null
   }
+}
+
+/**
+ * Get all known hostnames
+ */
+export function getHostnames(): string[] {
+  const db = getUsageDb()
+  const rows = db.prepare(`
+    SELECT DISTINCT hostname FROM usage_log WHERE hostname IS NOT NULL ORDER BY hostname
+  `).all() as { hostname: string }[]
+  return rows.map(r => r.hostname)
+}
+
+/**
+ * Batch ingest usage records from remote machines
+ */
+export interface RemoteUsageEntry {
+  timestamp: string
+  model: string
+  prompt_tokens: number
+  completion_tokens: number
+  total_tokens: number
+  endpoint?: string
+  duration_ms?: number
+  user_agent?: string
+  hostname: string
+}
+
+export function ingestRemoteUsage(entries: RemoteUsageEntry[]): number {
+  const db = getUsageDb()
+  const stmt = db.prepare(`
+    INSERT INTO usage_log (timestamp, model, prompt_tokens, completion_tokens, total_tokens, endpoint, duration_ms, client_ip, user_agent, hostname)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `)
+
+  let count = 0
+  const tx = db.transaction(() => {
+    for (const e of entries) {
+      stmt.run(
+        e.timestamp,
+        e.model,
+        e.prompt_tokens,
+        e.completion_tokens,
+        e.total_tokens,
+        e.endpoint ?? null,
+        e.duration_ms ?? null,
+        null,
+        e.user_agent ?? null,
+        e.hostname,
+      )
+      count++
+    }
+  })
+  tx()
+  return count
 }
