@@ -348,8 +348,40 @@ export function dashboardHtml(isAuthenticated: boolean, needsSetup: boolean): st
       } catch (e) { console.error(e); }
     }
 
+    // Fill gaps in hourly data so the timeline is continuous
+    function fillHourlyGaps(raw) {
+      if (!raw.length) return raw;
+      const map = {};
+      raw.forEach(d => { map[d.hour] = d; });
+      // Parse first and last hour
+      function parseHour(h) {
+        // "YYYY-MM-DD HH:00"
+        const [date, time] = h.split(' ');
+        const [y, m, d] = date.split('-').map(Number);
+        const hh = parseInt(time);
+        return new Date(y, m - 1, d, hh);
+      }
+      function fmtHour(dt) {
+        const y = dt.getFullYear();
+        const m = String(dt.getMonth() + 1).padStart(2, '0');
+        const d = String(dt.getDate()).padStart(2, '0');
+        const h = String(dt.getHours()).padStart(2, '0');
+        return y + '-' + m + '-' + d + ' ' + h + ':00';
+      }
+      const start = parseHour(raw[0].hour);
+      const end = parseHour(raw[raw.length - 1].hour);
+      const result = [];
+      const cur = new Date(start);
+      while (cur <= end) {
+        const key = fmtHour(cur);
+        result.push(map[key] || { hour: key, calls: 0, tokens: 0, prompt_tokens: 0, completion_tokens: 0 });
+        cur.setHours(cur.getHours() + 1);
+      }
+      return result;
+    }
+
     function renderSparkline() {
-      const data = state.hourly;
+      const data = fillHourlyGaps(state.hourly);
       if (!data.length) return '<div style="color:var(--text-dim);padding:24px;text-align:center">No data available</div>';
 
       const inData = data.map(d => d.prompt_tokens || 0);
@@ -358,26 +390,58 @@ export function dashboardHtml(isAuthenticated: boolean, needsSetup: boolean): st
       const totalOut = outData.reduce((s, v) => s + v, 0);
       const maxVal = Math.max(...data.map((d, i) => inData[i] + outData[i]), 1);
 
+      // Detect if data spans multiple days
+      const dates = data.map(d => d.hour?.slice(0, 10) || '');
+      const uniqueDates = [...new Set(dates)];
+      const multiDay = uniqueDates.length > 1;
+
+      // Format tooltip with full date context
+      function tipLabel(h) {
+        if (!h) return '';
+        // h = "YYYY-MM-DD HH:00"  →  "MM/DD HH:00"
+        return h.slice(5, 10).replace('-', '/') + ' ' + h.slice(11, 16);
+      }
+
+      // Format axis label: show date prefix on first bar of each new day
+      function axisLabel(d, i) {
+        const hh = d.hour?.slice(11, 16) || '';
+        if (!multiDay) return hh;
+        const curDate = d.hour?.slice(5, 10) || '';
+        const prevDate = i > 0 ? (data[i - 1].hour?.slice(5, 10) || '') : '';
+        // Show "MM/DD" above "HH:00" when the date changes (or for the first bar)
+        if (i === 0 || curDate !== prevDate) {
+          return curDate.replace('-', '/') + '\\n' + hh;
+        }
+        return hh;
+      }
+
       // Pick ~6 labels evenly spaced
       const labelEvery = Math.max(1, Math.floor(data.length / 6));
 
       const bars = data.map((d, i) => {
         const inH = (inData[i] / maxVal) * 100;
         const outH = (outData[i] / maxVal) * 100;
-        const hour = d.hour?.slice(11, 16) || '';
+        const tip = tipLabel(d.hour);
         return \`<div class="chart-bar">
-          <div class="chart-tooltip">\${hour} · in: \${fmt(inData[i])} · out: \${fmt(outData[i])}</div>
+          <div class="chart-tooltip">\${tip} · in: \${fmt(inData[i])} · out: \${fmt(outData[i])}</div>
           <div class="bar-seg-out" style="height:\${outH}%"></div>
           <div class="bar-seg-in" style="height:\${inH}%"></div>
         </div>\`;
       }).join('');
 
       const labels = data.map((d, i) => {
-        if (i % labelEvery !== 0 && i !== data.length - 1) return '';
-        return d.hour?.slice(11, 16) || '';
+        const isDateBoundary = multiDay && (i === 0 || (d.hour?.slice(0, 10) !== data[i - 1].hour?.slice(0, 10)));
+        if (!isDateBoundary && i % labelEvery !== 0 && i !== data.length - 1) return '';
+        return axisLabel(d, i);
       });
       // Build label spans: show first, evenly-spaced, and last
-      const labelHtml = labels.map(l => l ? \`<span>\${l}</span>\` : '<span></span>').join('');
+      const labelHtml = labels.map(l => {
+        if (!l) return '<span></span>';
+        // Support two-line labels (date\\ntime) via <br>
+        const parts = l.split('\\n');
+        if (parts.length > 1) return \`<span style="line-height:1.3">\${parts[0]}<br>\${parts[1]}</span>\`;
+        return \`<span>\${l}</span>\`;
+      }).join('');
 
       return \`
         <div class="chart-wrap">
