@@ -135,7 +135,13 @@ export function dashboardHtml(isAuthenticated: boolean, needsSetup: boolean): st
     .chart-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
     .chart-title { font-size: 13px; color: var(--text-muted); font-weight: 500; }
     .chart-value { font-size: 13px; color: var(--text-dim); }
-    .chart-bars { display: flex; align-items: flex-end; gap: 2px; height: 100px; position: relative; }
+    .chart-area { display: flex; align-items: stretch; gap: 0; }
+    .chart-yaxis {
+      display: flex; flex-direction: column; justify-content: space-between; align-items: flex-end;
+      padding-right: 8px; min-width: 40px; height: 100px;
+    }
+    .chart-yaxis span { font-size: 10px; color: var(--text-dim); font-variant-numeric: tabular-nums; line-height: 1; }
+    .chart-bars { display: flex; align-items: flex-end; gap: 2px; height: 100px; position: relative; flex: 1; }
     .chart-bar {
       flex: 1; display: flex; flex-direction: column; justify-content: flex-end;
       min-width: 0; height: 100%; position: relative; cursor: pointer;
@@ -449,8 +455,17 @@ export function dashboardHtml(isAuthenticated: boolean, needsSetup: boolean): st
             <span class="chart-title">📊 Hourly Token Usage</span>
             <span class="chart-value">\${fmt(totalIn + totalOut)} total</span>
           </div>
-          <div class="chart-bars">\${bars}</div>
-          <div class="chart-labels">\${labelHtml}</div>
+          <div class="chart-area">
+            <div class="chart-yaxis">
+              <span>\${fmt(maxVal)}</span>
+              <span>\${fmt(Math.round(maxVal / 2))}</span>
+              <span>0</span>
+            </div>
+            <div style="flex:1;min-width:0">
+              <div class="chart-bars">\${bars}</div>
+              <div class="chart-labels">\${labelHtml}</div>
+            </div>
+          </div>
           <div class="chart-legend">
             <div class="chart-legend-item"><div class="chart-legend-dot" style="background:var(--amber)"></div>Input \${fmt(totalIn)}</div>
             <div class="chart-legend-item"><div class="chart-legend-dot" style="background:var(--accent)"></div>Output \${fmt(totalOut)}</div>
@@ -583,6 +598,7 @@ export function dashboardHtml(isAuthenticated: boolean, needsSetup: boolean): st
               <thead>
                 <tr>
                   <th>Time</th>
+                  <th>Source</th>
                   <th>Model</th>
                   <th class="text-right">Cost</th>
                 </tr>
@@ -591,6 +607,7 @@ export function dashboardHtml(isAuthenticated: boolean, needsSetup: boolean): st
                 \${state.recent.map(r => \`
                   <tr>
                     <td class="mono">\${r.timestamp?.slice(11,16) || ''}</td>
+                    <td><span class="badge \${r.source === 'Claude Code' ? 'badge-amber' : r.source === 'OpenClaw' ? 'badge-accent' : 'badge-gray'}">\${r.source || '-'}</span></td>
                     <td><span class="dot" style="background:\${getColor(r.model)}"></span>\${r.model}</td>
                     <td class="text-right mono" style="color:var(--green)">\${fmtCost(r.cost || 0)}</td>
                   </tr>
