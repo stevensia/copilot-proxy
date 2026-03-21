@@ -3,6 +3,7 @@
  * Cross-platform SQLite storage for API usage logs
  */
 
+import { randomBytes } from 'node:crypto'
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { homedir, hostname } from 'node:os'
 import { join } from 'node:path'
@@ -783,4 +784,112 @@ export function ingestRemoteUsage(entries: RemoteUsageEntry[]): number {
   })
   tx()
   return count
+}
+
+/**
+ * Sync configuration
+ */
+export interface SyncConfig {
+  sync_enabled: boolean
+  sync_remote_url: string
+  sync_ingest_key: string
+  sync_interval_minutes: number
+  sync_last_id: number
+  sync_last_time: string
+  sync_last_error: string
+  sync_last_count: number
+  ingest_key: string
+}
+
+function getAuthConfigValue(key: string): string | null {
+  const db = getUsageDb()
+  const row = db.prepare(`SELECT value FROM auth_config WHERE key = ?`).get(key) as { value: string } | undefined
+  return row?.value ?? null
+}
+
+function setAuthConfigValue(key: string, value: string): void {
+  const db = getUsageDb()
+  db.prepare(`INSERT OR REPLACE INTO auth_config (key, value) VALUES (?, ?)`).run(key, value)
+}
+
+/**
+ * Get sync configuration from auth_config table
+ */
+export function getSyncConfig(): SyncConfig {
+  return {
+    sync_enabled: getAuthConfigValue('sync_enabled') === 'true',
+    sync_remote_url: getAuthConfigValue('sync_remote_url') ?? '',
+    sync_ingest_key: getAuthConfigValue('sync_ingest_key') ?? '',
+    sync_interval_minutes: Number(getAuthConfigValue('sync_interval_minutes')) || 5,
+    sync_last_id: Number(getAuthConfigValue('sync_last_id')) || 0,
+    sync_last_time: getAuthConfigValue('sync_last_time') ?? '',
+    sync_last_error: getAuthConfigValue('sync_last_error') ?? '',
+    sync_last_count: Number(getAuthConfigValue('sync_last_count')) || 0,
+    ingest_key: getAuthConfigValue('ingest_key') ?? '',
+  }
+}
+
+/**
+ * Save sync configuration (only the user-editable fields)
+ */
+export function saveSyncConfig(config: {
+  sync_enabled?: boolean
+  sync_remote_url?: string
+  sync_ingest_key?: string
+  sync_interval_minutes?: number
+}): void {
+  if (config.sync_enabled !== undefined)
+    setAuthConfigValue('sync_enabled', config.sync_enabled ? 'true' : 'false')
+  if (config.sync_remote_url !== undefined)
+    setAuthConfigValue('sync_remote_url', config.sync_remote_url)
+  if (config.sync_ingest_key !== undefined)
+    setAuthConfigValue('sync_ingest_key', config.sync_ingest_key)
+  if (config.sync_interval_minutes !== undefined)
+    setAuthConfigValue('sync_interval_minutes', String(config.sync_interval_minutes))
+}
+
+/**
+ * Update sync status fields (called by sync engine)
+ */
+export function updateSyncStatus(status: {
+  sync_last_id?: number
+  sync_last_time?: string
+  sync_last_error?: string
+  sync_last_count?: number
+}): void {
+  if (status.sync_last_id !== undefined)
+    setAuthConfigValue('sync_last_id', String(status.sync_last_id))
+  if (status.sync_last_time !== undefined)
+    setAuthConfigValue('sync_last_time', status.sync_last_time)
+  if (status.sync_last_error !== undefined)
+    setAuthConfigValue('sync_last_error', status.sync_last_error)
+  if (status.sync_last_count !== undefined)
+    setAuthConfigValue('sync_last_count', String(status.sync_last_count))
+}
+
+/**
+ * Get unsynced records after the given lastId
+ */
+export function getUnsyncedRecords(lastId: number, limit: number = 500): (RemoteUsageEntry & { id: number })[] {
+  const db = getUsageDb()
+  return db.prepare(`
+    SELECT id, timestamp, model, prompt_tokens, completion_tokens, total_tokens, endpoint, duration_ms, user_agent, hostname
+    FROM usage_log
+    WHERE id > ?
+    ORDER BY id ASC
+    LIMIT ?
+  `).all(lastId, limit) as (RemoteUsageEntry & { id: number })[]
+}
+
+/**
+ * Ensure an ingest key exists; generate one if missing
+ */
+export function ensureIngestKey(): string {
+  const existing = getAuthConfigValue('ingest_key')
+  if (existing)
+    return existing
+
+  const key = randomBytes(32).toString('hex')
+  setAuthConfigValue('ingest_key', key)
+  return key
 }

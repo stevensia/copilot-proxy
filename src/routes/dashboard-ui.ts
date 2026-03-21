@@ -267,6 +267,68 @@ export function dashboardHtml(isAuthenticated: boolean, needsSetup: boolean): st
       .container { padding: 16px 14px; }
       .theme-toggle { top: 12px; right: 12px; width: 36px; height: 36px; font-size: 16px; }
     }
+
+    /* Settings Panel */
+    .settings-overlay {
+      position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0,0,0,0.4); z-index: 200;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .settings-panel {
+      background: var(--bg-card); border: 1px solid var(--border);
+      border-radius: 14px; padding: 28px; max-width: 560px; width: 90%;
+      max-height: 85vh; overflow-y: auto; box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+    }
+    .settings-title { font-size: 16px; font-weight: 600; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; }
+    .settings-close { background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 20px; padding: 4px 8px; }
+    .settings-close:hover { color: var(--text); }
+    .settings-section { margin-bottom: 24px; }
+    .settings-section-title { font-size: 13px; font-weight: 600; color: var(--accent); margin-bottom: 12px; padding-bottom: 6px; border-bottom: 1px solid var(--border); }
+    .settings-row { margin-bottom: 12px; }
+    .settings-label { font-size: 12px; font-weight: 500; color: var(--text-dim); margin-bottom: 4px; }
+    .settings-input {
+      width: 100%; padding: 8px 12px; font-size: 13px;
+      background: var(--bg); border: 1px solid var(--border); border-radius: 6px;
+      color: var(--text); font-family: 'SF Mono', 'Fira Code', monospace;
+    }
+    .settings-input:focus { outline: none; border-color: var(--accent); }
+    .settings-input::placeholder { color: var(--text-dim); }
+    .settings-input-short { width: 100px; }
+    .settings-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+    .settings-status { font-size: 12px; color: var(--text-dim); margin-top: 8px; line-height: 1.6; }
+    .settings-status .error { color: #dc2626; }
+    .settings-status .success { color: var(--green); }
+    .switch-wrap { display: flex; align-items: center; gap: 10px; }
+    .switch {
+      position: relative; width: 42px; height: 24px; cursor: pointer;
+    }
+    .switch input { opacity: 0; width: 0; height: 0; }
+    .switch-slider {
+      position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+      background: var(--border); border-radius: 12px; transition: 0.2s;
+    }
+    .switch-slider::before {
+      content: ''; position: absolute; width: 18px; height: 18px;
+      left: 3px; bottom: 3px; background: white; border-radius: 50%; transition: 0.2s;
+    }
+    .switch input:checked + .switch-slider { background: var(--accent); }
+    .switch input:checked + .switch-slider::before { transform: translateX(18px); }
+    .copy-field { display: flex; gap: 6px; align-items: stretch; }
+    .copy-field .settings-input { flex: 1; }
+    .btn-copy {
+      padding: 8px 14px; font-size: 12px; font-weight: 500;
+      border: 1px solid var(--border); border-radius: 6px;
+      background: var(--bg-card); color: var(--text-muted); cursor: pointer;
+      white-space: nowrap;
+    }
+    .btn-copy:hover { background: var(--bg-hover); color: var(--text); }
+    .paste-area {
+      width: 100%; padding: 8px 12px; font-size: 12px;
+      background: var(--bg); border: 1px dashed var(--border); border-radius: 6px;
+      color: var(--text-dim); min-height: 36px; resize: none;
+      font-family: 'SF Mono', 'Fira Code', monospace;
+    }
+    .paste-area:focus { outline: none; border-color: var(--accent); border-style: solid; }
   </style>
 </head>
 <body class="theme-light">
@@ -515,6 +577,7 @@ export function dashboardHtml(isAuthenticated: boolean, needsSetup: boolean): st
         <header>
           <div class="logo">Copilot Proxy</div>
           <div class="header-actions">
+            <button class="btn" onclick="openSettings()">⚙️ Settings</button>
             <button class="btn" onclick="loadData()">Refresh</button>
             <button class="btn" onclick="exportCsv()">Export</button>
             <button class="btn" onclick="logout()">Logout</button>
@@ -692,6 +755,200 @@ export function dashboardHtml(isAuthenticated: boolean, needsSetup: boolean): st
 
     if (state.authenticated) loadData();
     else render();
+
+    // === Settings Panel ===
+    let settingsOpen = false;
+    let syncConfig = null;
+    let connectInfo = null;
+
+    async function openSettings() {
+      settingsOpen = true;
+      // Load sync config and connect info in parallel
+      try {
+        const [sc, ci] = await Promise.all([
+          api('sync-config'),
+          api('connect-info'),
+        ]);
+        syncConfig = sc;
+        connectInfo = ci;
+      } catch (e) { console.error(e); }
+      renderSettings();
+    }
+
+    function closeSettings() {
+      settingsOpen = false;
+      const overlay = document.getElementById('settingsOverlay');
+      if (overlay) overlay.remove();
+    }
+
+    function renderSettings() {
+      // Remove existing overlay
+      let overlay = document.getElementById('settingsOverlay');
+      if (overlay) overlay.remove();
+
+      if (!settingsOpen) return;
+
+      const sc = syncConfig || {};
+      const ci = connectInfo || {};
+
+      overlay = document.createElement('div');
+      overlay.id = 'settingsOverlay';
+      overlay.className = 'settings-overlay';
+      overlay.onclick = (e) => { if (e.target === overlay) closeSettings(); };
+
+      overlay.innerHTML = \`
+        <div class="settings-panel">
+          <div class="settings-title">
+            <span>⚙️ Settings</span>
+            <button class="settings-close" onclick="closeSettings()">✕</button>
+          </div>
+
+          <div class="settings-section">
+            <div class="settings-section-title">🖥️ Server Connection Info</div>
+            <p style="font-size:12px;color:var(--text-dim);margin-bottom:10px">
+              Share this info with other machines so they can push usage data to this server.
+            </p>
+            <div class="settings-row">
+              <div class="settings-label">Ingest Key</div>
+              <div class="copy-field">
+                <input class="settings-input" id="srvIngestKey" value="\${ci.ingestKey || ''}" readonly>
+                <button class="btn-copy" onclick="copyText(document.getElementById('srvIngestKey').value, this)">Copy</button>
+              </div>
+            </div>
+            <div class="settings-row">
+              <div class="settings-actions">
+                <button class="btn" onclick="copyConnectConfig()">📋 Copy Connection Config</button>
+              </div>
+              <div class="settings-status" id="copyStatus"></div>
+            </div>
+          </div>
+
+          <div class="settings-section">
+            <div class="settings-section-title">📤 Client Sync Settings</div>
+            <p style="font-size:12px;color:var(--text-dim);margin-bottom:10px">
+              Push this machine's usage data to a remote server.
+            </p>
+            <div class="settings-row">
+              <div class="settings-label">Paste Connection Config</div>
+              <textarea class="paste-area" id="pasteConfig" rows="1" placeholder='Paste {"url":"...","key":"..."} here'></textarea>
+            </div>
+            <div class="settings-row">
+              <div class="settings-label">Remote URL</div>
+              <input class="settings-input" id="syncUrl" value="\${sc.sync_remote_url || ''}" placeholder="https://example.com">
+            </div>
+            <div class="settings-row">
+              <div class="settings-label">Ingest Key</div>
+              <input class="settings-input" id="syncKey" value="\${sc.sync_ingest_key || ''}" placeholder="Remote server's ingest key">
+            </div>
+            <div class="settings-row" style="display:flex;gap:16px;align-items:flex-end">
+              <div style="flex:1">
+                <div class="settings-label">Interval (minutes)</div>
+                <input class="settings-input settings-input-short" id="syncInterval" type="number" min="1" value="\${sc.sync_interval_minutes || 5}">
+              </div>
+              <div>
+                <div class="settings-label">Enabled</div>
+                <label class="switch">
+                  <input type="checkbox" id="syncEnabled" \${sc.sync_enabled ? 'checked' : ''}>
+                  <span class="switch-slider"></span>
+                </label>
+              </div>
+            </div>
+            <div class="settings-actions">
+              <button class="btn active" onclick="saveSyncSettings()">💾 Save</button>
+              <button class="btn" onclick="syncNow()">🔄 Sync Now</button>
+            </div>
+            <div class="settings-status" id="syncStatus">
+              \${sc.sync_last_time ? '<span class="success">Last sync: ' + sc.sync_last_time + ' · ' + (sc.sync_last_count || 0) + ' records</span>' : ''}
+              \${sc.sync_last_error ? '<br><span class="error">Error: ' + sc.sync_last_error + '</span>' : ''}
+            </div>
+          </div>
+        </div>
+      \`;
+
+      document.body.appendChild(overlay);
+
+      // Setup paste handler
+      const pasteArea = document.getElementById('pasteConfig');
+      if (pasteArea) {
+        pasteArea.addEventListener('input', () => {
+          try {
+            const cfg = JSON.parse(pasteArea.value.trim());
+            if (cfg.url) document.getElementById('syncUrl').value = cfg.url;
+            if (cfg.key) document.getElementById('syncKey').value = cfg.key;
+            pasteArea.value = '';
+            pasteArea.placeholder = '✓ Config applied!';
+            setTimeout(() => { pasteArea.placeholder = 'Paste {"url":"...","key":"..."} here'; }, 2000);
+          } catch(e) { /* not valid JSON yet, ignore */ }
+        });
+      }
+    }
+
+    function copyText(text, btn) {
+      navigator.clipboard.writeText(text).then(() => {
+        const orig = btn.textContent;
+        btn.textContent = '✓ Copied';
+        setTimeout(() => { btn.textContent = orig; }, 1500);
+      });
+    }
+
+    function copyConnectConfig() {
+      const key = connectInfo?.ingestKey || '';
+      const url = window.location.origin;
+      const config = JSON.stringify({ url, key });
+      navigator.clipboard.writeText(config).then(() => {
+        const el = document.getElementById('copyStatus');
+        if (el) { el.innerHTML = '<span class="success">✓ Copied to clipboard!</span>'; setTimeout(() => { el.innerHTML = ''; }, 2000); }
+      });
+    }
+
+    async function saveSyncSettings() {
+      const body = {
+        sync_enabled: document.getElementById('syncEnabled').checked,
+        sync_remote_url: document.getElementById('syncUrl').value.trim(),
+        sync_ingest_key: document.getElementById('syncKey').value.trim(),
+        sync_interval_minutes: parseInt(document.getElementById('syncInterval').value) || 5,
+      };
+      try {
+        const res = await fetch('/dashboard/api/sync-config', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+          credentials: 'include',
+        });
+        const data = await res.json();
+        const el = document.getElementById('syncStatus');
+        if (data.success) {
+          syncConfig = { ...syncConfig, ...body };
+          if (el) el.innerHTML = '<span class="success">✓ Settings saved!</span>';
+        } else {
+          if (el) el.innerHTML = '<span class="error">Error: ' + (data.error || 'Unknown') + '</span>';
+        }
+      } catch (e) {
+        const el = document.getElementById('syncStatus');
+        if (el) el.innerHTML = '<span class="error">Network error</span>';
+      }
+    }
+
+    async function syncNow() {
+      const el = document.getElementById('syncStatus');
+      if (el) el.innerHTML = '<span>Syncing...</span>';
+      try {
+        const res = await fetch('/dashboard/api/sync-now', {
+          method: 'POST',
+          credentials: 'include',
+        });
+        const data = await res.json();
+        if (data.error) {
+          if (el) el.innerHTML = '<span class="error">Error: ' + data.error + '</span>';
+        } else {
+          if (el) el.innerHTML = '<span class="success">✓ Synced ' + (data.synced || 0) + ' records</span>';
+          // Refresh sync config to get updated status
+          try { syncConfig = await api('sync-config'); } catch(e) {}
+        }
+      } catch (e) {
+        if (el) el.innerHTML = '<span class="error">Network error</span>';
+      }
+    }
   </script>
 </body>
 </html>`

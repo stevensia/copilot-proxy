@@ -16,6 +16,7 @@ import {
   verifyPassword,
 } from '../lib/dashboard-auth'
 import {
+  ensureIngestKey,
   exportToCsv,
   getActivityMetrics,
   getAllPricing,
@@ -26,12 +27,15 @@ import {
   getRecentUsage,
   getSourceUsage,
   getStats,
+  getSyncConfig,
   getTodayStats,
   getTotalCost,
   getYesterdayCost,
   ingestRemoteUsage,
   savePricing,
+  saveSyncConfig,
 } from '../lib/usage-db'
+import { startUsageSync, stopUsageSync, syncOnce } from '../lib/usage-sync'
 import { activityPageHtml, dashboardHtml } from './dashboard-ui'
 
 const COOKIE_NAME = 'copilot_proxy_session'
@@ -402,5 +406,67 @@ export function registerDashboardRoutes(app: Hono): void {
     const db = (await import('../lib/usage-db')).getUsageDb()
     const row = db.prepare(`SELECT value FROM auth_config WHERE key = 'ingest_key'`).get() as { value: string } | undefined
     return c.json({ key: row?.value || null })
+  })
+
+  // === Sync config routes ===
+
+  // Get sync configuration + status
+  app.get('/dashboard/api/sync-config', (c) => {
+    const token = getCookie(c, COOKIE_NAME)
+    if (!token || !validateSession(token)) {
+      return c.json({ error: 'Unauthorized' }, 401)
+    }
+
+    return c.json(getSyncConfig())
+  })
+
+  // Save sync configuration and restart timer
+  app.post('/dashboard/api/sync-config', async (c) => {
+    const token = getCookie(c, COOKIE_NAME)
+    if (!token || !validateSession(token)) {
+      return c.json({ error: 'Unauthorized' }, 401)
+    }
+
+    try {
+      const body = await c.req.json<{
+        sync_enabled?: boolean
+        sync_remote_url?: string
+        sync_ingest_key?: string
+        sync_interval_minutes?: number
+      }>()
+
+      saveSyncConfig(body)
+
+      // Restart sync timer with new config
+      stopUsageSync()
+      startUsageSync()
+
+      return c.json({ success: true })
+    }
+    catch (e: any) {
+      return c.json({ error: e.message }, 400)
+    }
+  })
+
+  // Manually trigger a single sync
+  app.post('/dashboard/api/sync-now', async (c) => {
+    const token = getCookie(c, COOKIE_NAME)
+    if (!token || !validateSession(token)) {
+      return c.json({ error: 'Unauthorized' }, 401)
+    }
+
+    const result = await syncOnce()
+    return c.json(result)
+  })
+
+  // Get connection info for other machines to connect to this server
+  app.get('/dashboard/api/connect-info', (c) => {
+    const token = getCookie(c, COOKIE_NAME)
+    if (!token || !validateSession(token)) {
+      return c.json({ error: 'Unauthorized' }, 401)
+    }
+
+    const ingestKey = ensureIngestKey()
+    return c.json({ ingestKey })
   })
 }
