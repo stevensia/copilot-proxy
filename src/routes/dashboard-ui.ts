@@ -91,7 +91,7 @@ export function dashboardHtml(isAuthenticated: boolean, needsSetup: boolean): st
       border-bottom: 1px solid var(--border);
     }
     .logo { font-size: 15px; font-weight: 600; color: var(--text); }
-    .header-actions { display: flex; gap: 8px; }
+    .header-actions { display: flex; gap: 8px; flex-wrap: wrap; }
     
     /* Buttons */
     .btn {
@@ -266,6 +266,9 @@ export function dashboardHtml(isAuthenticated: boolean, needsSetup: boolean): st
       .stat-value { font-size: 22px; }
       .container { padding: 16px 14px; }
       .theme-toggle { top: 12px; right: 12px; width: 36px; height: 36px; font-size: 16px; }
+      header { flex-wrap: wrap; gap: 12px; }
+      .header-actions { gap: 6px; padding-right: 44px; }
+      .header-actions .btn { padding: 8px 10px; font-size: 12px; min-height: 36px; }
     }
 
     /* Settings Panel */
