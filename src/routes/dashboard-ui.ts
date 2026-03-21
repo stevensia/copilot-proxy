@@ -606,6 +606,7 @@ export function dashboardHtml(isAuthenticated: boolean, needsSetup: boolean): st
                   <th>Time</th>
                   <th>Source</th>
                   <th>Model</th>
+                  <th class="text-right">Tokens (in/out)</th>
                   <th class="text-right">Cost</th>
                 </tr>
               </thead>
@@ -615,6 +616,7 @@ export function dashboardHtml(isAuthenticated: boolean, needsSetup: boolean): st
                     <td class="mono">\${r.timestamp?.slice(11,16) || ''}</td>
                     <td><span class="badge \${r.source === 'Claude Code' ? 'badge-amber' : r.source === 'OpenClaw' ? 'badge-accent' : 'badge-gray'}">\${r.source || '-'}</span></td>
                     <td><span class="dot" style="background:\${getColor(r.model)}"></span>\${r.model}</td>
+                    <td class="text-right mono">\${fmt(r.prompt_tokens || 0)} / \${fmt(r.completion_tokens || 0)}</td>
                     <td class="text-right mono" style="color:var(--green)">\${fmtCost(r.cost || 0)}</td>
                   </tr>
                 \`).join('')}
