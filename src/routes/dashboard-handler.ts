@@ -208,7 +208,8 @@ export function registerDashboardRoutes(app: Hono): void {
       return c.json({ error: 'Unauthorized' }, 401)
     }
 
-    const hours = Number(c.req.query('hours')) || 24
+    const raw = c.req.query('hours')
+    const hours = raw !== undefined ? Number(raw) : 24
     const since = getSinceDate(hours)
 
     return c.json(getHourlyUsage(since))
