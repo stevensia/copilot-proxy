@@ -10,6 +10,7 @@ export function dashboardHtml(isAuthenticated: boolean, needsSetup: boolean): st
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Usage Dashboard</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📊</text></svg>">
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     
@@ -108,7 +109,7 @@ export function dashboardHtml(isAuthenticated: boolean, needsSetup: boolean): st
     .btn.active { background: var(--accent); color: white; border-color: var(--accent); }
     
     /* Stats Grid */
-    .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 24px; }
+    .stats { display: grid; grid-template-columns: repeat(5, 1fr); gap: 14px; margin-bottom: 24px; }
     .stat {
       background: var(--bg-card);
       border: 1px solid var(--border);
@@ -549,6 +550,11 @@ export function dashboardHtml(isAuthenticated: boolean, needsSetup: boolean): st
             <div class="stat-value">\${fmtCost(todayCost)}</div>
             <div class="stat-sub">\${todayDelta}\${todayDelta ? ' · ' : ''}\${fmt(todayCalls)} calls</div>
           </div>
+          <div class="stat">
+            <div class="stat-label">⚡ Today's Tokens</div>
+            <div class="stat-value">\${fmt((t.total_prompt_tokens || 0) + (t.total_completion_tokens || 0))}</div>
+            <div class="stat-sub">\${fmt(t.total_prompt_tokens || 0)} in · \${fmt(t.total_completion_tokens || 0)} out</div>
+          </div>
         </div>
 
         \${renderSparkline()}
@@ -699,6 +705,7 @@ export function activityPageHtml(isAuthenticated: boolean, needsSetup: boolean):
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Activity - Usage Dashboard</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📊</text></svg>">
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
 
