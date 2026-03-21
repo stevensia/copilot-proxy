@@ -88,6 +88,10 @@ export interface ChatCompletionChunk {
 
 interface Delta {
   content?: string | null
+  reasoning_text?: string | null
+  reasoning_opaque?: string | null
+  encrypted_content?: string | null
+  phase?: string | null
   role?: 'user' | 'assistant' | 'system' | 'tool'
   tool_calls?: Array<{
     index: number
@@ -129,6 +133,11 @@ export interface ChatCompletionResponse {
 interface ResponseMessage {
   role: 'assistant'
   content: string | null
+  reasoning_text?: string | null
+  reasoning_opaque?: string | null
+  encrypted_content?: string | null
+  phase?: string | null
+  outputTokens?: number
   tool_calls?: Array<ToolCall>
 }
 
@@ -185,6 +194,11 @@ export interface Message {
   content: string | Array<ContentPart> | null
 
   name?: string
+  reasoning_text?: string | null
+  reasoning_opaque?: string | null
+  encrypted_content?: string | null
+  phase?: string | null
+  outputTokens?: number
   tool_calls?: Array<ToolCall>
   tool_call_id?: string
   copilot_cache_control?: { type: 'ephemeral' } | null
