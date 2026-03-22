@@ -271,6 +271,17 @@ export function dashboardHtml(isAuthenticated: boolean, needsSetup: boolean): st
       .header-actions .btn { padding: 8px 10px; font-size: 12px; min-height: 36px; }
     }
 
+    /* Pull-to-refresh indicator */
+    .ptr-indicator {
+      text-align: center; overflow: hidden; height: 0;
+      transition: height 0.2s ease; color: var(--text-dim); font-size: 13px;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .ptr-indicator.active { height: 48px; }
+    .ptr-indicator.refreshing { height: 48px; }
+    .ptr-spinner { display: inline-block; animation: ptr-spin 0.8s linear infinite; }
+    @keyframes ptr-spin { to { transform: rotate(360deg); } }
+
     /* Settings Panel */
     .settings-overlay {
       position: fixed; top: 0; left: 0; right: 0; bottom: 0;
@@ -577,6 +588,7 @@ export function dashboardHtml(isAuthenticated: boolean, needsSetup: boolean): st
       const totalTokens = (s.total_prompt_tokens || 0) + (s.total_completion_tokens || 0);
 
       return \`
+        <div id="ptr-indicator" class="ptr-indicator"></div>
         <header>
           <div class="logo">Copilot Proxy</div>
           <div class="header-actions">
@@ -758,6 +770,47 @@ export function dashboardHtml(isAuthenticated: boolean, needsSetup: boolean): st
 
     if (state.authenticated) loadData();
     else render();
+
+    // === Pull-to-refresh for mobile ===
+    (function() {
+      let startY = 0, pulling = false, threshold = 60;
+      function getIndicator() { return document.getElementById('ptr-indicator'); }
+
+      document.addEventListener('touchstart', function(e) {
+        if (window.scrollY === 0 && state.authenticated) {
+          startY = e.touches[0].clientY;
+          pulling = true;
+        }
+      }, { passive: true });
+
+      document.addEventListener('touchmove', function(e) {
+        if (!pulling) return;
+        const el = getIndicator();
+        if (!el) return;
+        const dy = e.touches[0].clientY - startY;
+        if (dy > 0 && dy < 120) {
+          el.style.height = Math.min(dy * 0.6, 48) + 'px';
+          el.innerHTML = dy > threshold ? '↑ Release to refresh' : '↓ Pull to refresh';
+        }
+      }, { passive: true });
+
+      document.addEventListener('touchend', function() {
+        if (!pulling) return;
+        pulling = false;
+        const el = getIndicator();
+        if (!el) return;
+        const h = parseInt(el.style.height);
+        if (h >= 40) {
+          el.innerHTML = '<span class="ptr-spinner">↻</span> Refreshing...';
+          el.style.height = '48px';
+          loadData().then(function() {
+            setTimeout(function() { if (el) el.style.height = '0'; }, 300);
+          });
+        } else {
+          el.style.height = '0';
+        }
+      }, { passive: true });
+    })();
 
     // === Settings Panel ===
     let settingsOpen = false;
@@ -1101,12 +1154,26 @@ export function activityPageHtml(isAuthenticated: boolean, needsSetup: boolean):
     .btn-submit:hover { background: var(--accent-hover); }
     .error-msg { color: #dc2626; font-size: 13px; text-align: center; margin-top: 14px; }
 
+    .header-actions { display: flex; gap: 8px; }
+
     @media (max-width: 640px) {
       .container { padding: 16px 14px; }
       .metric-card { min-width: 110px; padding: 10px 12px; }
       .metric-value { font-size: 16px; }
       .theme-toggle { top: 12px; right: 12px; width: 36px; height: 36px; font-size: 16px; }
+      header { flex-wrap: wrap; gap: 12px; }
+      .header-actions { gap: 6px; }
+      .header-actions .btn { padding: 8px 10px; font-size: 12px; min-height: 36px; }
     }
+
+    /* Pull-to-refresh indicator */
+    .ptr-indicator {
+      text-align: center; overflow: hidden; height: 0;
+      transition: height 0.2s ease; color: var(--text-dim); font-size: 13px;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .ptr-spinner { display: inline-block; animation: ptr-spin 0.8s linear infinite; }
+    @keyframes ptr-spin { to { transform: rotate(360deg); } }
   </style>
 </head>
 <body class="theme-light">
@@ -1209,8 +1276,12 @@ export function activityPageHtml(isAuthenticated: boolean, needsSetup: boolean):
       const m = state.metrics || {};
 
       return \`
+        <div id="ptr-indicator" class="ptr-indicator"></div>
         <header>
           <div class="logo"><a href="/dashboard">← Dashboard</a> / Activity</div>
+          <div class="header-actions">
+            <button class="btn" onclick="loadAll()">Refresh</button>
+          </div>
         </header>
 
         <div class="metrics-bar">
@@ -1319,6 +1390,47 @@ export function activityPageHtml(isAuthenticated: boolean, needsSetup: boolean):
 
     if (state.authenticated) loadAll();
     else render();
+
+    // === Pull-to-refresh for mobile ===
+    (function() {
+      let startY = 0, pulling = false, threshold = 60;
+      function getIndicator() { return document.getElementById('ptr-indicator'); }
+
+      document.addEventListener('touchstart', function(e) {
+        if (window.scrollY === 0 && state.authenticated) {
+          startY = e.touches[0].clientY;
+          pulling = true;
+        }
+      }, { passive: true });
+
+      document.addEventListener('touchmove', function(e) {
+        if (!pulling) return;
+        const el = getIndicator();
+        if (!el) return;
+        const dy = e.touches[0].clientY - startY;
+        if (dy > 0 && dy < 120) {
+          el.style.height = Math.min(dy * 0.6, 48) + 'px';
+          el.innerHTML = dy > threshold ? '↑ Release to refresh' : '↓ Pull to refresh';
+        }
+      }, { passive: true });
+
+      document.addEventListener('touchend', function() {
+        if (!pulling) return;
+        pulling = false;
+        const el = getIndicator();
+        if (!el) return;
+        const h = parseInt(el.style.height);
+        if (h >= 40) {
+          el.innerHTML = '<span class="ptr-spinner">↻</span> Refreshing...';
+          el.style.height = '48px';
+          loadAll().then(function() {
+            setTimeout(function() { if (el) el.style.height = '0'; }, 300);
+          });
+        } else {
+          el.style.height = '0';
+        }
+      }, { passive: true });
+    })();
   </script>
 </body>
 </html>`
