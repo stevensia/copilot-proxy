@@ -266,8 +266,8 @@ export function dashboardHtml(isAuthenticated: boolean, needsSetup: boolean): st
       .stat-value { font-size: 22px; }
       .container { padding: 16px 14px; }
       .theme-toggle { top: 12px; right: 12px; width: 36px; height: 36px; font-size: 16px; }
-      header { flex-wrap: wrap; gap: 12px; }
-      .header-actions { gap: 6px; padding-right: 44px; }
+      header { flex-wrap: wrap; gap: 12px; padding-right: 44px; }
+      .header-actions { gap: 6px; }
       .header-actions .btn { padding: 8px 10px; font-size: 12px; min-height: 36px; }
     }
 
@@ -673,9 +673,9 @@ export function dashboardHtml(isAuthenticated: boolean, needsSetup: boolean): st
         </div>
 
         <div class="section">
-          <div class="section-title" style="display:flex;justify-content:space-between;align-items:center">
-            Recent Activity
-            <a href="/dashboard/activity" class="btn" style="text-decoration:none;font-weight:500;font-size:12px">View All Activity →</a>
+          <div class="section-title" style="display:flex;justify-content:space-between;align-items:center;font-size:16px;color:var(--text);margin-bottom:16px">
+            📋 Recent Activity
+            <a href="/dashboard/activity" style="display:inline-flex;align-items:center;gap:4px;padding:6px 14px;font-size:12px;font-weight:600;color:#fff;background:var(--accent);border-radius:6px;text-decoration:none;transition:background 0.15s">View All Activity →</a>
           </div>
           <div class="table-wrap">
             <table>
@@ -1154,14 +1154,14 @@ export function activityPageHtml(isAuthenticated: boolean, needsSetup: boolean):
     .btn-submit:hover { background: var(--accent-hover); }
     .error-msg { color: #dc2626; font-size: 13px; text-align: center; margin-top: 14px; }
 
-    .header-actions { display: flex; gap: 8px; }
+    .header-actions { display: flex; gap: 8px; flex-wrap: wrap; flex-shrink: 0; }
 
     @media (max-width: 640px) {
       .container { padding: 16px 14px; }
       .metric-card { min-width: 110px; padding: 10px 12px; }
       .metric-value { font-size: 16px; }
       .theme-toggle { top: 12px; right: 12px; width: 36px; height: 36px; font-size: 16px; }
-      header { flex-wrap: wrap; gap: 12px; }
+      header { flex-wrap: wrap; gap: 12px; padding-right: 44px; }
       .header-actions { gap: 6px; }
       .header-actions .btn { padding: 8px 10px; font-size: 12px; min-height: 36px; }
     }
