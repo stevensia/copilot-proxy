@@ -464,8 +464,23 @@ export function dashboardHtml(isAuthenticated: boolean, needsSetup: boolean): st
     }
 
     function renderSparkline() {
-      const data = fillHourlyGaps(state.hourly);
+      let data = fillHourlyGaps(state.hourly);
       if (!data.length) return '<div style="color:var(--text-dim);padding:24px;text-align:center">No data available</div>';
+
+      // Auto-aggregate to daily when > 48 bars (2+ days) for readability
+      const tooManyBars = data.length > 48;
+      if (tooManyBars) {
+        const dayMap = {};
+        data.forEach(d => {
+          const day = d.hour?.slice(0, 10) || 'unknown';
+          if (!dayMap[day]) dayMap[day] = { hour: day, calls: 0, tokens: 0, prompt_tokens: 0, completion_tokens: 0 };
+          dayMap[day].calls += d.calls || 0;
+          dayMap[day].tokens += d.tokens || 0;
+          dayMap[day].prompt_tokens += d.prompt_tokens || 0;
+          dayMap[day].completion_tokens += d.completion_tokens || 0;
+        });
+        data = Object.values(dayMap).sort((a, b) => a.hour.localeCompare(b.hour));
+      }
 
       const inData = data.map(d => d.prompt_tokens || 0);
       const outData = data.map(d => d.completion_tokens || 0);
@@ -481,12 +496,17 @@ export function dashboardHtml(isAuthenticated: boolean, needsSetup: boolean): st
       // Format tooltip with full date context
       function tipLabel(h) {
         if (!h) return '';
+        if (tooManyBars) return h; // daily: just show date
         // h = "YYYY-MM-DD HH:00"  →  "MM/DD HH:00"
         return h.slice(5, 10).replace('-', '/') + ' ' + h.slice(11, 16);
       }
 
       // Format axis label: show date prefix on first bar of each new day
       function axisLabel(d, i) {
+        if (tooManyBars) {
+          // Daily mode: show MM/DD
+          return (d.hour || '').slice(5, 10).replace('-', '/');
+        }
         const hh = d.hour?.slice(11, 16) || '';
         if (!multiDay) return hh;
         const curDate = d.hour?.slice(5, 10) || '';
@@ -529,7 +549,7 @@ export function dashboardHtml(isAuthenticated: boolean, needsSetup: boolean): st
       return \`
         <div class="chart-wrap">
           <div class="chart-header">
-            <span class="chart-title">📊 Hourly Token Usage</span>
+            <span class="chart-title">📊 \${tooManyBars ? 'Daily' : 'Hourly'} Token Usage</span>
             <span class="chart-value">\${fmt(totalIn + totalOut)} total</span>
           </div>
           <div class="chart-area">
