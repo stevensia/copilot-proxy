@@ -3,6 +3,7 @@ import { cors } from 'hono/cors'
 import { logger } from 'hono/logger'
 
 import { completionRoutes } from './routes/chat-completions/route'
+import { registerDashboardRoutes } from './routes/dashboard-handler'
 import { embeddingRoutes } from './routes/embeddings/route'
 import { messageRoutes } from './routes/messages/route'
 import { modelRoutes } from './routes/models/route'
@@ -16,6 +17,9 @@ server.use(logger())
 server.use(cors())
 
 server.get('/', c => c.text('Server running'))
+
+// Register dashboard routes
+registerDashboardRoutes(server)
 
 server.route('/chat/completions', completionRoutes)
 server.route('/models', modelRoutes)

@@ -91,6 +91,9 @@ export async function runServer(options: RunServerOptions): Promise<void> {
     serve({
       fetch: server.fetch as ServerHandler,
       port: options.port,
+      bun: {
+        idleTimeout: 255, // max Bun allows (seconds), prevent premature connection kills during long LLM streams
+      },
     })
   }
   catch (error) {

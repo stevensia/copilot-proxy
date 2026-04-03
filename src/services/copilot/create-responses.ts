@@ -50,6 +50,7 @@ export async function createResponses(payload: ResponsesPayload) {
     method: 'POST',
     headers,
     body,
+    signal: AbortSignal.timeout(10 * 60 * 1000), // 10 min timeout for long LLM requests
   })
   logUpstreamHeadersReceived({
     endpoint: '/responses',

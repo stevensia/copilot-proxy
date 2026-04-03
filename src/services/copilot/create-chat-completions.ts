@@ -34,6 +34,7 @@ export async function createChatCompletions(payload: ChatCompletionsPayload) {
     method: 'POST',
     headers,
     body,
+    signal: AbortSignal.timeout(10 * 60 * 1000), // 10 min timeout for long LLM requests
   })
   logUpstreamHeadersReceived({
     endpoint: '/chat/completions',

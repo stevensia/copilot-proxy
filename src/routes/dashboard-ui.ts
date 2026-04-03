@@ -1,0 +1,1457 @@
+/**
+ * Dashboard UI - Single-file HTML/CSS/JS
+ * Light (Azure Blue) / Dark theme toggle
+ */
+
+export function dashboardHtml(isAuthenticated: boolean, needsSetup: boolean): string {
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Usage Dashboard</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📊</text></svg>">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      min-height: 100vh;
+      font-size: 14px;
+      line-height: 1.5;
+      -webkit-font-smoothing: antialiased;
+      transition: background 0.2s ease, color 0.2s ease;
+    }
+    
+    /* Light Theme (Azure Blue Tint) */
+    body.theme-light {
+      --bg: #f0f4f8;
+      --bg-card: #ffffff;
+      --bg-hover: #e8eef4;
+      --border: #cdd7e1;
+      --text: #0d2137;
+      --text-muted: #4a5568;
+      --text-dim: #8696a7;
+      --accent: #0078d4;
+      --accent-hover: #106ebe;
+      --green: #107c10;
+      --amber: #ca5010;
+      --shadow: 0 1px 3px rgba(0,0,0,0.06);
+    }
+    
+    /* Dark Theme (Slate) */
+    body.theme-dark {
+      --bg: #0f172a;
+      --bg-card: #1e293b;
+      --bg-hover: #334155;
+      --border: #334155;
+      --text: #f1f5f9;
+      --text-muted: #94a3b8;
+      --text-dim: #64748b;
+      --accent: #38bdf8;
+      --accent-hover: #7dd3fc;
+      --green: #4ade80;
+      --amber: #fbbf24;
+      --shadow: 0 1px 3px rgba(0,0,0,0.3);
+    }
+    
+    body { background: var(--bg); color: var(--text); }
+    
+    .container { max-width: 900px; margin: 0 auto; padding: 24px 20px; }
+    
+    /* Theme Toggle */
+    .theme-toggle {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      width: 40px;
+      height: 40px;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      background: var(--bg-card);
+      color: var(--text-muted);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+      box-shadow: var(--shadow);
+      transition: all 0.15s ease;
+      z-index: 100;
+    }
+    .theme-toggle:hover { background: var(--bg-hover); color: var(--text); }
+    
+    /* Header */
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 28px;
+      padding-bottom: 16px;
+      border-bottom: 1px solid var(--border);
+    }
+    .logo { font-size: 15px; font-weight: 600; color: var(--text); }
+    .header-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+    
+    /* Buttons */
+    .btn {
+      padding: 7px 14px;
+      font-size: 13px;
+      font-weight: 500;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      background: var(--bg-card);
+      color: var(--text-muted);
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+    .btn:hover { background: var(--bg-hover); color: var(--text); }
+    .btn.active { background: var(--accent); color: white; border-color: var(--accent); }
+    
+    /* Stats Grid */
+    .stats { display: grid; grid-template-columns: repeat(5, 1fr); gap: 14px; margin-bottom: 24px; }
+    .stat {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 18px;
+      box-shadow: var(--shadow);
+    }
+    .stat-label { font-size: 12px; color: var(--text-dim); margin-bottom: 6px; font-weight: 500; }
+    .stat-value { font-size: 26px; font-weight: 600; color: var(--text); font-variant-numeric: tabular-nums; }
+    .stat-sub { font-size: 12px; color: var(--text-dim); margin-top: 4px; }
+    
+    /* Time Filter */
+    .filters { display: flex; gap: 6px; margin-bottom: 24px; }
+    
+    /* Bar Chart */
+    .chart-wrap {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 18px;
+      margin-bottom: 24px;
+      box-shadow: var(--shadow);
+    }
+    .chart-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
+    .chart-title { font-size: 13px; color: var(--text-muted); font-weight: 500; }
+    .chart-value { font-size: 13px; color: var(--text-dim); }
+    .chart-area { display: flex; align-items: stretch; gap: 0; }
+    .chart-yaxis {
+      display: flex; flex-direction: column; justify-content: space-between; align-items: flex-end;
+      padding-right: 8px; min-width: 40px; height: 100px;
+    }
+    .chart-yaxis span { font-size: 10px; color: var(--text-dim); font-variant-numeric: tabular-nums; line-height: 1; }
+    .chart-bars { display: flex; align-items: flex-end; gap: 2px; height: 100px; position: relative; flex: 1; }
+    .chart-bar {
+      flex: 1; display: flex; flex-direction: column; justify-content: flex-end;
+      min-width: 0; height: 100%; position: relative; cursor: pointer;
+    }
+    .bar-seg-out { background: var(--accent); border-radius: 3px 3px 0 0; min-height: 0; transition: opacity 0.15s; }
+    .bar-seg-in { background: var(--amber); min-height: 0; transition: opacity 0.15s; }
+    .chart-bar:first-child .bar-seg-in { border-radius: 0 0 3px 3px; }
+    .bar-seg-in { border-radius: 0 0 3px 3px; }
+    .chart-bar:hover .bar-seg-out, .chart-bar:hover .bar-seg-in { opacity: 0.8; }
+    .chart-labels { display: flex; justify-content: space-between; margin-top: 8px; }
+    .chart-labels span { font-size: 11px; color: var(--text-dim); }
+    .chart-legend { display: flex; gap: 16px; align-items: center; margin-top: 10px; }
+    .chart-legend-item { display: flex; align-items: center; gap: 5px; font-size: 12px; color: var(--text-dim); }
+    .chart-legend-dot { width: 8px; height: 8px; border-radius: 2px; }
+    .chart-tooltip {
+      position: absolute; top: -36px; left: 50%; transform: translateX(-50%);
+      background: var(--text); color: var(--bg-card);
+      padding: 4px 8px; border-radius: 5px;
+      font-size: 11px; font-weight: 500;
+      pointer-events: none; opacity: 0; transition: opacity 0.15s;
+      white-space: nowrap; z-index: 10;
+    }
+    .chart-bar:hover .chart-tooltip { opacity: 1; }
+    
+    /* Tables */
+    .section { margin-bottom: 24px; }
+    .section-title { font-size: 13px; color: var(--text-muted); font-weight: 600; margin-bottom: 12px; }
+    .table-wrap {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+      box-shadow: var(--shadow);
+    }
+    table { width: 100%; border-collapse: collapse; min-width: 480px; }
+    th { 
+      text-align: left; 
+      padding: 12px 16px; 
+      font-size: 12px; 
+      font-weight: 600;
+      color: var(--text-dim);
+      background: var(--bg-hover);
+      border-bottom: 1px solid var(--border);
+    }
+    td { 
+      padding: 11px 16px; 
+      font-size: 13px;
+      color: var(--text-muted);
+      border-bottom: 1px solid var(--border);
+    }
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: var(--bg-hover); }
+    .text-right { text-align: right; }
+    .mono { font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace; font-size: 12px; }
+    
+    /* Badges */
+    .badge {
+      display: inline-block;
+      padding: 3px 10px;
+      border-radius: 12px;
+      font-size: 11px;
+      font-weight: 600;
+    }
+    .badge-accent { background: color-mix(in srgb, var(--accent) 15%, transparent); color: var(--accent); }
+    .badge-amber { background: color-mix(in srgb, var(--amber) 15%, transparent); color: var(--amber); }
+    .badge-gray { background: var(--bg-hover); color: var(--text-dim); }
+    
+    /* Model dot */
+    .dot { 
+      display: inline-block; 
+      width: 8px; 
+      height: 8px; 
+      border-radius: 50%; 
+      margin-right: 8px;
+    }
+    
+    /* Two columns */
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+    
+    /* Login */
+    .login-wrap { max-width: 340px; margin: 100px auto; }
+    .login-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 36px;
+      box-shadow: var(--shadow);
+    }
+    .login-title { font-size: 18px; font-weight: 600; text-align: center; margin-bottom: 28px; color: var(--text); }
+    .form-input {
+      width: 100%;
+      padding: 11px 14px;
+      font-size: 14px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text);
+      margin-bottom: 14px;
+    }
+    .form-input:focus { outline: none; border-color: var(--accent); }
+    .form-input::placeholder { color: var(--text-dim); }
+    .btn-submit {
+      width: 100%;
+      padding: 11px;
+      font-size: 14px;
+      font-weight: 600;
+      background: var(--accent);
+      color: white;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+    }
+    .btn-submit:hover { background: var(--accent-hover); }
+    .error-msg { color: #dc2626; font-size: 13px; text-align: center; margin-top: 14px; }
+    
+    /* Responsive */
+    @media (max-width: 640px) {
+      .stats { grid-template-columns: repeat(2, 1fr); }
+      .grid-2 { grid-template-columns: 1fr; }
+      .stat-value { font-size: 22px; }
+      .container { padding: 16px 14px; }
+      .theme-toggle { top: 12px; right: 12px; width: 36px; height: 36px; font-size: 16px; }
+      header { flex-wrap: wrap; gap: 12px; padding-right: 44px; }
+      .header-actions { gap: 6px; }
+      .header-actions .btn { padding: 8px 10px; font-size: 12px; min-height: 36px; }
+    }
+
+    /* Pull-to-refresh indicator */
+    .ptr-indicator {
+      text-align: center; overflow: hidden; height: 0;
+      transition: height 0.2s ease; color: var(--text-dim); font-size: 13px;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .ptr-indicator.active { height: 48px; }
+    .ptr-indicator.refreshing { height: 48px; }
+    .ptr-spinner { display: inline-block; animation: ptr-spin 0.8s linear infinite; }
+    @keyframes ptr-spin { to { transform: rotate(360deg); } }
+
+    /* Settings Panel */
+    .settings-overlay {
+      position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0,0,0,0.4); z-index: 200;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .settings-panel {
+      background: var(--bg-card); border: 1px solid var(--border);
+      border-radius: 14px; padding: 28px; max-width: 560px; width: 90%;
+      max-height: 85vh; overflow-y: auto; box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+    }
+    .settings-title { font-size: 16px; font-weight: 600; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; }
+    .settings-close { background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 20px; padding: 4px 8px; }
+    .settings-close:hover { color: var(--text); }
+    .settings-section { margin-bottom: 24px; }
+    .settings-section-title { font-size: 13px; font-weight: 600; color: var(--accent); margin-bottom: 12px; padding-bottom: 6px; border-bottom: 1px solid var(--border); }
+    .settings-row { margin-bottom: 12px; }
+    .settings-label { font-size: 12px; font-weight: 500; color: var(--text-dim); margin-bottom: 4px; }
+    .settings-input {
+      width: 100%; padding: 8px 12px; font-size: 13px;
+      background: var(--bg); border: 1px solid var(--border); border-radius: 6px;
+      color: var(--text); font-family: 'SF Mono', 'Fira Code', monospace;
+    }
+    .settings-input:focus { outline: none; border-color: var(--accent); }
+    .settings-input::placeholder { color: var(--text-dim); }
+    .settings-input-short { width: 100px; }
+    .settings-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+    .settings-status { font-size: 12px; color: var(--text-dim); margin-top: 8px; line-height: 1.6; }
+    .settings-status .error { color: #dc2626; }
+    .settings-status .success { color: var(--green); }
+    .switch-wrap { display: flex; align-items: center; gap: 10px; }
+    .switch {
+      position: relative; width: 42px; height: 24px; cursor: pointer;
+    }
+    .switch input { opacity: 0; width: 0; height: 0; }
+    .switch-slider {
+      position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+      background: var(--border); border-radius: 12px; transition: 0.2s;
+    }
+    .switch-slider::before {
+      content: ''; position: absolute; width: 18px; height: 18px;
+      left: 3px; bottom: 3px; background: white; border-radius: 50%; transition: 0.2s;
+    }
+    .switch input:checked + .switch-slider { background: var(--accent); }
+    .switch input:checked + .switch-slider::before { transform: translateX(18px); }
+    .copy-field { display: flex; gap: 6px; align-items: stretch; }
+    .copy-field .settings-input { flex: 1; }
+    .btn-copy {
+      padding: 8px 14px; font-size: 12px; font-weight: 500;
+      border: 1px solid var(--border); border-radius: 6px;
+      background: var(--bg-card); color: var(--text-muted); cursor: pointer;
+      white-space: nowrap;
+    }
+    .btn-copy:hover { background: var(--bg-hover); color: var(--text); }
+    .paste-area {
+      width: 100%; padding: 8px 12px; font-size: 12px;
+      background: var(--bg); border: 1px dashed var(--border); border-radius: 6px;
+      color: var(--text-dim); min-height: 36px; resize: none;
+      font-family: 'SF Mono', 'Fira Code', monospace;
+    }
+    .paste-area:focus { outline: none; border-color: var(--accent); border-style: solid; }
+  </style>
+</head>
+<body class="theme-light">
+  <button class="theme-toggle" id="themeToggle" title="Toggle theme">☀️</button>
+  
+  <div class="container" id="app">
+    <div style="text-align:center;padding:60px;color:var(--text-dim)">Loading...</div>
+  </div>
+
+  <script>
+    // Theme toggle
+    function setTheme(dark) {
+      document.body.className = dark ? 'theme-dark' : 'theme-light';
+      document.getElementById('themeToggle').textContent = dark ? '🌙' : '☀️';
+      localStorage.setItem('dashboard-theme', dark ? 'dark' : 'light');
+    }
+    
+    document.getElementById('themeToggle').addEventListener('click', () => {
+      setTheme(document.body.classList.contains('theme-light'));
+    });
+    
+    // Load saved theme or use system preference
+    const saved = localStorage.getItem('dashboard-theme');
+    if (saved) {
+      setTheme(saved === 'dark');
+    } else if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
+      setTheme(true);
+    }
+
+    const state = {
+      authenticated: ${isAuthenticated},
+      needsSetup: ${needsSetup},
+      hours: 24,
+      stats: null,
+      today: null,
+      totalCost: 0,
+      yesterdayCost: 0,
+      periodDays: null,
+      hourly: [],
+      daily: [],
+      models: [],
+      sources: [],
+      recent: [],
+    };
+
+    const COLORS = {
+      'claude-opus-4.5': '#8b5cf6',
+      'claude-opus-4.6': '#7c3aed',
+      'claude-sonnet-4.5': '#6366f1',
+      'gpt-5.1': '#10b981',
+      'gpt-5.1-codex': '#059669',
+    };
+    
+    function getColor(model) { return COLORS[model] || '#9ca3af'; }
+    function fmt(n) {
+      if (n >= 1000000) return (n / 1000000).toFixed(1) + 'M';
+      if (n >= 1000) return (n / 1000).toFixed(1) + 'K';
+      return n.toString();
+    }
+
+    async function api(endpoint) {
+      const res = await fetch('/dashboard/api/' + endpoint, { credentials: 'include' });
+      if (res.status === 401) { state.authenticated = false; render(); throw new Error('Unauthorized'); }
+      return res.json();
+    }
+
+    async function loadData() {
+      try {
+        const [statsRes, hourly, daily, models, sources, recent] = await Promise.all([
+          api('stats?hours=' + state.hours),
+          api('hourly?hours=' + state.hours),
+          api('daily?hours=' + state.hours),
+          api('models?hours=' + state.hours),
+          api('sources?hours=' + state.hours),
+          api('recent?limit=5'),
+        ]);
+        Object.assign(state, {
+          stats: statsRes.stats,
+          today: statsRes.today,
+          totalCost: statsRes.totalCost,
+          yesterdayCost: statsRes.yesterdayCost,
+          periodDays: statsRes.periodDays,
+          hourly, daily, models, sources, recent
+        });
+        render();
+      } catch (e) { console.error(e); }
+    }
+
+    // Fill gaps in hourly data so the timeline is continuous
+    function fillHourlyGaps(raw) {
+      if (!raw.length) return raw;
+      const map = {};
+      raw.forEach(d => { map[d.hour] = d; });
+      // Parse first and last hour
+      function parseHour(h) {
+        // "YYYY-MM-DD HH:00"
+        const [date, time] = h.split(' ');
+        const [y, m, d] = date.split('-').map(Number);
+        const hh = parseInt(time);
+        return new Date(y, m - 1, d, hh);
+      }
+      function fmtHour(dt) {
+        const y = dt.getFullYear();
+        const m = String(dt.getMonth() + 1).padStart(2, '0');
+        const d = String(dt.getDate()).padStart(2, '0');
+        const h = String(dt.getHours()).padStart(2, '0');
+        return y + '-' + m + '-' + d + ' ' + h + ':00';
+      }
+      const start = parseHour(raw[0].hour);
+      const end = parseHour(raw[raw.length - 1].hour);
+      const result = [];
+      const cur = new Date(start);
+      while (cur <= end) {
+        const key = fmtHour(cur);
+        result.push(map[key] || { hour: key, calls: 0, tokens: 0, prompt_tokens: 0, completion_tokens: 0 });
+        cur.setHours(cur.getHours() + 1);
+      }
+      return result;
+    }
+
+    function renderSparkline() {
+      let data = fillHourlyGaps(state.hourly);
+      if (!data.length) return '<div style="color:var(--text-dim);padding:24px;text-align:center">No data available</div>';
+
+      // Auto-aggregate to daily when > 48 bars (2+ days) for readability
+      const tooManyBars = data.length > 48;
+      if (tooManyBars) {
+        const dayMap = {};
+        data.forEach(d => {
+          const day = d.hour?.slice(0, 10) || 'unknown';
+          if (!dayMap[day]) dayMap[day] = { hour: day, calls: 0, tokens: 0, prompt_tokens: 0, completion_tokens: 0 };
+          dayMap[day].calls += d.calls || 0;
+          dayMap[day].tokens += d.tokens || 0;
+          dayMap[day].prompt_tokens += d.prompt_tokens || 0;
+          dayMap[day].completion_tokens += d.completion_tokens || 0;
+        });
+        data = Object.values(dayMap).sort((a, b) => a.hour.localeCompare(b.hour));
+      }
+
+      const inData = data.map(d => d.prompt_tokens || 0);
+      const outData = data.map(d => d.completion_tokens || 0);
+      const totalIn = inData.reduce((s, v) => s + v, 0);
+      const totalOut = outData.reduce((s, v) => s + v, 0);
+      const maxVal = Math.max(...data.map((d, i) => inData[i] + outData[i]), 1);
+
+      // Detect if data spans multiple days
+      const dates = data.map(d => d.hour?.slice(0, 10) || '');
+      const uniqueDates = [...new Set(dates)];
+      const multiDay = uniqueDates.length > 1;
+
+      // Format tooltip with full date context
+      function tipLabel(h) {
+        if (!h) return '';
+        if (tooManyBars) return h; // daily: just show date
+        // h = "YYYY-MM-DD HH:00"  →  "MM/DD HH:00"
+        return h.slice(5, 10).replace('-', '/') + ' ' + h.slice(11, 16);
+      }
+
+      // Format axis label: show date prefix on first bar of each new day
+      function axisLabel(d, i) {
+        if (tooManyBars) {
+          // Daily mode: show MM/DD
+          return (d.hour || '').slice(5, 10).replace('-', '/');
+        }
+        const hh = d.hour?.slice(11, 16) || '';
+        if (!multiDay) return hh;
+        const curDate = d.hour?.slice(5, 10) || '';
+        const prevDate = i > 0 ? (data[i - 1].hour?.slice(5, 10) || '') : '';
+        // Show "MM/DD" above "HH:00" when the date changes (or for the first bar)
+        if (i === 0 || curDate !== prevDate) {
+          return curDate.replace('-', '/') + '\\n' + hh;
+        }
+        return hh;
+      }
+
+      // Pick ~6 labels evenly spaced
+      const labelEvery = Math.max(1, Math.floor(data.length / 6));
+
+      const bars = data.map((d, i) => {
+        const inH = (inData[i] / maxVal) * 100;
+        const outH = (outData[i] / maxVal) * 100;
+        const tip = tipLabel(d.hour);
+        return \`<div class="chart-bar">
+          <div class="chart-tooltip">\${tip} · in: \${fmt(inData[i])} · out: \${fmt(outData[i])}</div>
+          <div class="bar-seg-out" style="height:\${outH}%"></div>
+          <div class="bar-seg-in" style="height:\${inH}%"></div>
+        </div>\`;
+      }).join('');
+
+      const labels = data.map((d, i) => {
+        const isDateBoundary = multiDay && (i === 0 || (d.hour?.slice(0, 10) !== data[i - 1].hour?.slice(0, 10)));
+        if (!isDateBoundary && i % labelEvery !== 0 && i !== data.length - 1) return '';
+        return axisLabel(d, i);
+      });
+      // Build label spans: show first, evenly-spaced, and last
+      const labelHtml = labels.map(l => {
+        if (!l) return '<span></span>';
+        // Support two-line labels (date\\ntime) via <br>
+        const parts = l.split('\\n');
+        if (parts.length > 1) return \`<span style="line-height:1.3">\${parts[0]}<br>\${parts[1]}</span>\`;
+        return \`<span>\${l}</span>\`;
+      }).join('');
+
+      return \`
+        <div class="chart-wrap">
+          <div class="chart-header">
+            <span class="chart-title">📊 \${tooManyBars ? 'Daily' : 'Hourly'} Token Usage</span>
+            <span class="chart-value">\${fmt(totalIn + totalOut)} total</span>
+          </div>
+          <div class="chart-area">
+            <div class="chart-yaxis">
+              <span>\${fmt(maxVal)}</span>
+              <span>\${fmt(Math.round(maxVal / 2))}</span>
+              <span>0</span>
+            </div>
+            <div style="flex:1;min-width:0">
+              <div class="chart-bars">\${bars}</div>
+              <div class="chart-labels">\${labelHtml}</div>
+            </div>
+          </div>
+          <div class="chart-legend">
+            <div class="chart-legend-item"><div class="chart-legend-dot" style="background:var(--amber)"></div>Input \${fmt(totalIn)}</div>
+            <div class="chart-legend-item"><div class="chart-legend-dot" style="background:var(--accent)"></div>Output \${fmt(totalOut)}</div>
+          </div>
+        </div>
+      \`;
+    }
+
+    function renderDashboard() {
+      const s = state.stats || {};
+      const t = state.today || {};
+      const totalCost = state.totalCost || 0;
+      const yesterdayCost = state.yesterdayCost || 0;
+      const periodDays = state.periodDays || 1;
+
+      function fmtCost(c) {
+        if (c >= 1) return '$' + c.toFixed(2);
+        if (c >= 0.01) return '$' + c.toFixed(3);
+        return '$' + c.toFixed(4);
+      }
+
+      // Today vs yesterday percentage
+      const todayCost = t.cost || 0;
+      let todayDelta = '';
+      if (yesterdayCost > 0) {
+        const pct = ((todayCost - yesterdayCost) / yesterdayCost * 100).toFixed(0);
+        const arrow = todayCost >= yesterdayCost ? '↑' : '↓';
+        todayDelta = arrow + Math.abs(pct) + '% vs yesterday';
+      } else if (todayCost > 0) {
+        todayDelta = 'no data yesterday';
+      }
+
+      // Period avg
+      const avgPerDay = periodDays > 0 ? totalCost / periodDays : totalCost;
+      const periodLabel = state.hours > 0 ? periodDays + ' day' + (periodDays > 1 ? 's' : '') : 'all time';
+
+      // Today calls + avg per hour
+      const todayCalls = t.total_calls || 0;
+      const nowHour = new Date().getHours() || 1;
+      const avgPerHr = Math.round(todayCalls / nowHour);
+
+      // Tokens
+      const totalTokens = (s.total_prompt_tokens || 0) + (s.total_completion_tokens || 0);
+
+      return \`
+        <div id="ptr-indicator" class="ptr-indicator"></div>
+        <header>
+          <div class="logo">Copilot Proxy</div>
+          <div class="header-actions">
+            <button class="btn" onclick="openSettings()">⚙️ Settings</button>
+            <button class="btn" onclick="loadData()">Refresh</button>
+            <button class="btn" onclick="exportCsv()">Export</button>
+            <button class="btn" onclick="logout()">Logout</button>
+          </div>
+        </header>
+
+        <div class="filters">
+          \${[1, 6, 24, 168, 0].map(h => \`
+            <button class="btn \${state.hours === h ? 'active' : ''}" onclick="setHours(\${h})">
+              \${h === 0 ? 'All' : h === 168 ? '7d' : h + 'h'}
+            </button>
+          \`).join('')}
+        </div>
+
+        <div class="stats">
+          <div class="stat">
+            <div class="stat-label">⚡ Tokens Used</div>
+            <div class="stat-value">\${fmt(totalTokens)}</div>
+            <div class="stat-sub">\${fmt(s.total_prompt_tokens || 0)} in · \${fmt(s.total_completion_tokens || 0)} out</div>
+          </div>
+          <div class="stat">
+            <div class="stat-label">📞 Total Calls</div>
+            <div class="stat-value">\${fmt(s.total_calls || 0)}</div>
+            <div class="stat-sub">\${fmt(todayCalls)} today · avg \${fmt(avgPerHr)}/hr</div>
+          </div>
+          <div class="stat">
+            <div class="stat-label">📊 Period Cost</div>
+            <div class="stat-value">\${fmtCost(totalCost)}</div>
+            <div class="stat-sub">avg \${fmtCost(avgPerDay)}/day · \${periodLabel}</div>
+          </div>
+          <div class="stat">
+            <div class="stat-label">💰 Today's Cost</div>
+            <div class="stat-value">\${fmtCost(todayCost)}</div>
+            <div class="stat-sub">\${todayDelta}\${todayDelta ? ' · ' : ''}\${fmt(todayCalls)} calls</div>
+          </div>
+          <div class="stat">
+            <div class="stat-label">⚡ Today's Tokens</div>
+            <div class="stat-value">\${fmt((t.total_prompt_tokens || 0) + (t.total_completion_tokens || 0))}</div>
+            <div class="stat-sub">\${fmt(t.total_prompt_tokens || 0)} in · \${fmt(t.total_completion_tokens || 0)} out</div>
+          </div>
+        </div>
+
+        \${renderSparkline()}
+
+        <div class="section">
+          <div class="section-title">By Source · By Model</div>
+          <div class="table-wrap">
+            <div style="display:flex;flex-direction:column;min-width:max-content">
+              <table>
+                <thead><tr><th>Source</th><th class="text-right">Calls</th><th class="text-right">Tokens (in/out)</th><th class="text-right">Cost</th></tr></thead>
+                <tbody>
+                  \${state.sources.map(s => \`
+                    <tr>
+                      <td><span class="badge \${s.source === 'Claude Code' ? 'badge-amber' : s.source === 'OpenClaw' ? 'badge-accent' : 'badge-gray'}">\${s.source}</span></td>
+                      <td class="text-right mono">\${fmt(s.calls)}</td>
+                      <td class="text-right mono">\${fmt(s.prompt_tokens || 0)} / \${fmt(s.completion_tokens || 0)}</td>
+                      <td class="text-right mono" style="color:var(--green)">\${fmtCost(s.cost || 0)}</td>
+                    </tr>
+                  \`).join('')}
+                </tbody>
+              </table>
+              <div style="height:1px;background:var(--border);margin:8px 0"></div>
+              <table>
+                <thead><tr><th>Model</th><th class="text-right">Calls</th><th class="text-right">Tokens (in/out)</th><th class="text-right">Cost</th></tr></thead>
+                <tbody>
+                  \${state.models.map(m => \`
+                    <tr>
+                      <td><span class="dot" style="background:\${getColor(m.model)}"></span>\${m.model}</td>
+                      <td class="text-right mono">\${fmt(m.calls)}</td>
+                      <td class="text-right mono">\${fmt(m.prompt_tokens || 0)} / \${fmt(m.completion_tokens || 0)}</td>
+                      <td class="text-right mono" style="color:var(--green)">\${fmtCost(m.cost || 0)}</td>
+                    </tr>
+                  \`).join('')}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <div class="section">
+          <div class="section-title" style="display:flex;justify-content:space-between;align-items:center;font-size:16px;color:var(--text);margin-bottom:16px">
+            📋 Recent Activity
+            <a href="/dashboard/activity" style="display:inline-flex;align-items:center;gap:4px;padding:6px 14px;font-size:12px;font-weight:600;color:#fff;background:var(--accent);border-radius:6px;text-decoration:none;transition:background 0.15s">View All Activity →</a>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Time</th>
+                  <th>Source</th>
+                  <th>Model</th>
+                  <th class="text-right">Tokens (in/out)</th>
+                  <th class="text-right">Cost</th>
+                </tr>
+              </thead>
+              <tbody>
+                \${state.recent.map(r => \`
+                  <tr>
+                    <td class="mono">\${r.timestamp?.slice(11,16) || ''}</td>
+                    <td><span class="badge \${r.source === 'Claude Code' ? 'badge-amber' : r.source === 'OpenClaw' ? 'badge-accent' : 'badge-gray'}">\${r.source || '-'}</span></td>
+                    <td><span class="dot" style="background:\${getColor(r.model)}"></span>\${r.model}</td>
+                    <td class="text-right mono">\${fmt(r.prompt_tokens || 0)} / \${fmt(r.completion_tokens || 0)}</td>
+                    <td class="text-right mono" style="color:var(--green)">\${fmtCost(r.cost || 0)}</td>
+                  </tr>
+                \`).join('')}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      \`;
+    }
+
+    function renderLogin() {
+      return \`
+        <div class="login-wrap">
+          <div class="login-card">
+            <div class="login-title">\${state.needsSetup ? 'Set Password' : 'Dashboard Login'}</div>
+            <form id="loginForm">
+              <input type="password" class="form-input" id="password" placeholder="\${state.needsSetup ? 'Choose a password' : 'Enter password'}" autocomplete="current-password">
+              \${state.needsSetup ? '<input type="password" class="form-input" id="confirmPassword" placeholder="Confirm password">' : ''}
+              <button type="submit" class="btn-submit">\${state.needsSetup ? 'Set Password' : 'Login'}</button>
+              <div id="loginError" class="error-msg"></div>
+            </form>
+          </div>
+        </div>
+      \`;
+    }
+
+    function render() {
+      const app = document.getElementById('app');
+      app.innerHTML = state.authenticated ? renderDashboard() : renderLogin();
+      if (!state.authenticated) setupLoginForm();
+    }
+
+    function setupLoginForm() {
+      const form = document.getElementById('loginForm');
+      if (!form) return;
+      
+      form.onsubmit = async (e) => {
+        e.preventDefault();
+        const pw = document.getElementById('password').value;
+        const err = document.getElementById('loginError');
+        
+        if (state.needsSetup) {
+          const confirm = document.getElementById('confirmPassword').value;
+          if (pw !== confirm) { err.textContent = 'Passwords do not match'; return; }
+          if (pw.length < 4) { err.textContent = 'Password too short'; return; }
+        }
+        
+        try {
+          const res = await fetch('/dashboard/api/' + (state.needsSetup ? 'setup' : 'login'), {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ password: pw }),
+            credentials: 'include'
+          });
+          const data = await res.json();
+          if (data.success) { state.authenticated = true; state.needsSetup = false; loadData(); }
+          else err.textContent = data.error || 'Login failed';
+        } catch (e) { err.textContent = 'Network error'; }
+      };
+    }
+
+    function setHours(h) { state.hours = h; loadData(); }
+    
+    async function logout() {
+      await fetch('/dashboard/api/logout', { method: 'POST', credentials: 'include' });
+      state.authenticated = false;
+      render();
+    }
+    
+    async function exportCsv() {
+      window.open('/dashboard/api/export?hours=' + state.hours, '_blank');
+    }
+
+    if (state.authenticated) loadData();
+    else render();
+
+    // === Pull-to-refresh for mobile ===
+    (function() {
+      let startY = 0, pulling = false, threshold = 60;
+      function getIndicator() { return document.getElementById('ptr-indicator'); }
+
+      document.addEventListener('touchstart', function(e) {
+        if (window.scrollY === 0 && state.authenticated) {
+          startY = e.touches[0].clientY;
+          pulling = true;
+        }
+      }, { passive: true });
+
+      document.addEventListener('touchmove', function(e) {
+        if (!pulling) return;
+        const el = getIndicator();
+        if (!el) return;
+        const dy = e.touches[0].clientY - startY;
+        if (dy > 0 && dy < 120) {
+          el.style.height = Math.min(dy * 0.6, 48) + 'px';
+          el.innerHTML = dy > threshold ? '↑ Release to refresh' : '↓ Pull to refresh';
+        }
+      }, { passive: true });
+
+      document.addEventListener('touchend', function() {
+        if (!pulling) return;
+        pulling = false;
+        const el = getIndicator();
+        if (!el) return;
+        const h = parseInt(el.style.height);
+        if (h >= 40) {
+          el.innerHTML = '<span class="ptr-spinner">↻</span> Refreshing...';
+          el.style.height = '48px';
+          loadData().then(function() {
+            setTimeout(function() { if (el) el.style.height = '0'; }, 300);
+          });
+        } else {
+          el.style.height = '0';
+        }
+      }, { passive: true });
+    })();
+
+    // === Settings Panel ===
+    let settingsOpen = false;
+    let syncConfig = null;
+    let connectInfo = null;
+
+    async function openSettings() {
+      settingsOpen = true;
+      // Load sync config and connect info in parallel
+      try {
+        const [sc, ci] = await Promise.all([
+          api('sync-config'),
+          api('connect-info'),
+        ]);
+        syncConfig = sc;
+        connectInfo = ci;
+      } catch (e) { console.error(e); }
+      renderSettings();
+    }
+
+    function closeSettings() {
+      settingsOpen = false;
+      const overlay = document.getElementById('settingsOverlay');
+      if (overlay) overlay.remove();
+    }
+
+    function renderSettings() {
+      // Remove existing overlay
+      let overlay = document.getElementById('settingsOverlay');
+      if (overlay) overlay.remove();
+
+      if (!settingsOpen) return;
+
+      const sc = syncConfig || {};
+      const ci = connectInfo || {};
+
+      overlay = document.createElement('div');
+      overlay.id = 'settingsOverlay';
+      overlay.className = 'settings-overlay';
+      overlay.onclick = (e) => { if (e.target === overlay) closeSettings(); };
+
+      overlay.innerHTML = \`
+        <div class="settings-panel">
+          <div class="settings-title">
+            <span>⚙️ Settings</span>
+            <button class="settings-close" onclick="closeSettings()">✕</button>
+          </div>
+
+          <div class="settings-section">
+            <div class="settings-section-title">🖥️ Server Connection Info</div>
+            <p style="font-size:12px;color:var(--text-dim);margin-bottom:10px">
+              Share this info with other machines so they can push usage data to this server.
+            </p>
+            <div class="settings-row">
+              <div class="settings-label">Ingest Key</div>
+              <div class="copy-field">
+                <input class="settings-input" id="srvIngestKey" value="\${ci.ingestKey || ''}" readonly>
+                <button class="btn-copy" onclick="copyText(document.getElementById('srvIngestKey').value, this)">Copy</button>
+              </div>
+            </div>
+            <div class="settings-row">
+              <div class="settings-actions">
+                <button class="btn" onclick="copyConnectConfig()">📋 Copy Connection Config</button>
+              </div>
+              <div class="settings-status" id="copyStatus"></div>
+            </div>
+          </div>
+
+          <div class="settings-section">
+            <div class="settings-section-title">📤 Client Sync Settings</div>
+            <p style="font-size:12px;color:var(--text-dim);margin-bottom:10px">
+              Push this machine's usage data to a remote server.
+            </p>
+            <div class="settings-row">
+              <div class="settings-label">Paste Connection Config</div>
+              <textarea class="paste-area" id="pasteConfig" rows="1" placeholder='Paste {"url":"...","key":"..."} here'></textarea>
+            </div>
+            <div class="settings-row">
+              <div class="settings-label">Remote URL</div>
+              <input class="settings-input" id="syncUrl" value="\${sc.sync_remote_url || ''}" placeholder="https://example.com">
+            </div>
+            <div class="settings-row">
+              <div class="settings-label">Ingest Key</div>
+              <input class="settings-input" id="syncKey" value="\${sc.sync_ingest_key || ''}" placeholder="Remote server's ingest key">
+            </div>
+            <div class="settings-row" style="display:flex;gap:16px;align-items:flex-end">
+              <div style="flex:1">
+                <div class="settings-label">Interval (minutes)</div>
+                <input class="settings-input settings-input-short" id="syncInterval" type="number" min="1" value="\${sc.sync_interval_minutes || 5}">
+              </div>
+              <div>
+                <div class="settings-label">Enabled</div>
+                <label class="switch">
+                  <input type="checkbox" id="syncEnabled" \${sc.sync_enabled ? 'checked' : ''}>
+                  <span class="switch-slider"></span>
+                </label>
+              </div>
+            </div>
+            <div class="settings-actions">
+              <button class="btn active" onclick="saveSyncSettings()">💾 Save</button>
+              <button class="btn" onclick="syncNow()">🔄 Sync Now</button>
+            </div>
+            <div class="settings-status" id="syncStatus">
+              \${sc.sync_last_time ? '<span class="success">Last sync: ' + sc.sync_last_time + ' · ' + (sc.sync_last_count || 0) + ' records</span>' : ''}
+              \${sc.sync_last_error ? '<br><span class="error">Error: ' + sc.sync_last_error + '</span>' : ''}
+            </div>
+          </div>
+        </div>
+      \`;
+
+      document.body.appendChild(overlay);
+
+      // Setup paste handler
+      const pasteArea = document.getElementById('pasteConfig');
+      if (pasteArea) {
+        pasteArea.addEventListener('input', () => {
+          try {
+            const cfg = JSON.parse(pasteArea.value.trim());
+            if (cfg.url) document.getElementById('syncUrl').value = cfg.url;
+            if (cfg.key) document.getElementById('syncKey').value = cfg.key;
+            pasteArea.value = '';
+            pasteArea.placeholder = '✓ Config applied!';
+            setTimeout(() => { pasteArea.placeholder = 'Paste {"url":"...","key":"..."} here'; }, 2000);
+          } catch(e) { /* not valid JSON yet, ignore */ }
+        });
+      }
+    }
+
+    function copyText(text, btn) {
+      navigator.clipboard.writeText(text).then(() => {
+        const orig = btn.textContent;
+        btn.textContent = '✓ Copied';
+        setTimeout(() => { btn.textContent = orig; }, 1500);
+      });
+    }
+
+    function copyConnectConfig() {
+      const key = connectInfo?.ingestKey || '';
+      const url = window.location.origin;
+      const config = JSON.stringify({ url, key });
+      navigator.clipboard.writeText(config).then(() => {
+        const el = document.getElementById('copyStatus');
+        if (el) { el.innerHTML = '<span class="success">✓ Copied to clipboard!</span>'; setTimeout(() => { el.innerHTML = ''; }, 2000); }
+      });
+    }
+
+    async function saveSyncSettings() {
+      const body = {
+        sync_enabled: document.getElementById('syncEnabled').checked,
+        sync_remote_url: document.getElementById('syncUrl').value.trim(),
+        sync_ingest_key: document.getElementById('syncKey').value.trim(),
+        sync_interval_minutes: parseInt(document.getElementById('syncInterval').value) || 5,
+      };
+      try {
+        const res = await fetch('/dashboard/api/sync-config', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+          credentials: 'include',
+        });
+        const data = await res.json();
+        const el = document.getElementById('syncStatus');
+        if (data.success) {
+          syncConfig = { ...syncConfig, ...body };
+          if (el) el.innerHTML = '<span class="success">✓ Settings saved!</span>';
+        } else {
+          if (el) el.innerHTML = '<span class="error">Error: ' + (data.error || 'Unknown') + '</span>';
+        }
+      } catch (e) {
+        const el = document.getElementById('syncStatus');
+        if (el) el.innerHTML = '<span class="error">Network error</span>';
+      }
+    }
+
+    async function syncNow() {
+      const el = document.getElementById('syncStatus');
+      if (el) el.innerHTML = '<span>Syncing...</span>';
+      try {
+        const res = await fetch('/dashboard/api/sync-now', {
+          method: 'POST',
+          credentials: 'include',
+        });
+        const data = await res.json();
+        if (data.error) {
+          if (el) el.innerHTML = '<span class="error">Error: ' + data.error + '</span>';
+        } else {
+          if (el) el.innerHTML = '<span class="success">✓ Synced ' + (data.synced || 0) + ' records</span>';
+          // Refresh sync config to get updated status
+          try { syncConfig = await api('sync-config'); } catch(e) {}
+        }
+      } catch (e) {
+        if (el) el.innerHTML = '<span class="error">Network error</span>';
+      }
+    }
+  </script>
+</body>
+</html>`
+}
+
+/**
+ * Activity page - standalone page for browsing all call records
+ */
+export function activityPageHtml(isAuthenticated: boolean, needsSetup: boolean): string {
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Activity - Usage Dashboard</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📊</text></svg>">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      min-height: 100vh;
+      font-size: 14px;
+      line-height: 1.5;
+      -webkit-font-smoothing: antialiased;
+      transition: background 0.2s ease, color 0.2s ease;
+    }
+
+    body.theme-light {
+      --bg: #f0f4f8;
+      --bg-card: #ffffff;
+      --bg-hover: #e8eef4;
+      --border: #cdd7e1;
+      --text: #0d2137;
+      --text-muted: #4a5568;
+      --text-dim: #8696a7;
+      --accent: #0078d4;
+      --accent-hover: #106ebe;
+      --green: #107c10;
+      --amber: #ca5010;
+      --shadow: 0 1px 3px rgba(0,0,0,0.06);
+    }
+
+    body.theme-dark {
+      --bg: #0f172a;
+      --bg-card: #1e293b;
+      --bg-hover: #334155;
+      --border: #334155;
+      --text: #f1f5f9;
+      --text-muted: #94a3b8;
+      --text-dim: #64748b;
+      --accent: #38bdf8;
+      --accent-hover: #7dd3fc;
+      --green: #4ade80;
+      --amber: #fbbf24;
+      --shadow: 0 1px 3px rgba(0,0,0,0.3);
+    }
+
+    body { background: var(--bg); color: var(--text); }
+
+    .container { max-width: 700px; margin: 0 auto; padding: 24px 20px; }
+
+    .theme-toggle {
+      position: fixed; top: 20px; right: 20px;
+      width: 40px; height: 40px; border-radius: 10px;
+      border: 1px solid var(--border); background: var(--bg-card);
+      color: var(--text-muted); cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 18px; box-shadow: var(--shadow); z-index: 100;
+    }
+    .theme-toggle:hover { background: var(--bg-hover); color: var(--text); }
+
+    header {
+      display: flex; justify-content: space-between; align-items: center;
+      margin-bottom: 20px; padding-bottom: 16px; border-bottom: 1px solid var(--border);
+    }
+    .logo { font-size: 15px; font-weight: 600; color: var(--text); }
+    .logo a { color: var(--text); text-decoration: none; }
+    .logo a:hover { color: var(--accent); }
+
+    .btn {
+      padding: 7px 14px; font-size: 13px; font-weight: 500;
+      border: 1px solid var(--border); border-radius: 6px;
+      background: var(--bg-card); color: var(--text-muted); cursor: pointer;
+    }
+    .btn:hover { background: var(--bg-hover); color: var(--text); }
+    .btn.active { background: var(--accent); color: white; border-color: var(--accent); }
+
+    /* Metrics bar - horizontal scroll on mobile */
+    .metrics-bar {
+      display: flex; gap: 10px; margin-bottom: 20px;
+      overflow-x: auto; -webkit-overflow-scrolling: touch;
+      padding-bottom: 4px;
+    }
+    .metrics-bar::-webkit-scrollbar { height: 0; }
+    .metric-card {
+      flex: 0 0 auto; min-width: 130px;
+      background: var(--bg-card); border: 1px solid var(--border);
+      border-radius: 10px; padding: 14px 16px; box-shadow: var(--shadow);
+    }
+    .metric-label { font-size: 11px; color: var(--text-dim); font-weight: 500; margin-bottom: 4px; }
+    .metric-value { font-size: 18px; font-weight: 600; color: var(--text); font-variant-numeric: tabular-nums; }
+
+    .filters { display: flex; gap: 6px; margin-bottom: 20px; }
+
+    /* Card list */
+    .call-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 20px; }
+    .call-card {
+      background: var(--bg-card); border: 1px solid var(--border);
+      border-radius: 10px; padding: 14px 16px; box-shadow: var(--shadow);
+    }
+    .call-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+    .call-model { font-weight: 600; font-size: 13px; color: var(--text); }
+    .call-cost { font-weight: 600; font-size: 13px; color: var(--green); font-family: 'SF Mono', monospace; }
+    .call-meta { display: flex; gap: 14px; font-size: 12px; color: var(--text-dim); flex-wrap: wrap; }
+    .call-time { font-size: 12px; color: var(--text-dim); margin-top: 4px; }
+
+    .load-more-wrap { text-align: center; margin-bottom: 24px; }
+    .btn-load {
+      padding: 10px 32px; font-size: 14px; font-weight: 500;
+      border: 1px solid var(--border); border-radius: 8px;
+      background: var(--bg-card); color: var(--text-muted); cursor: pointer;
+    }
+    .btn-load:hover { background: var(--bg-hover); color: var(--text); }
+    .btn-load:disabled { opacity: 0.5; cursor: default; }
+
+    .empty { text-align: center; padding: 40px; color: var(--text-dim); }
+
+    /* Login */
+    .login-wrap { max-width: 340px; margin: 100px auto; }
+    .login-card {
+      background: var(--bg-card); border: 1px solid var(--border);
+      border-radius: 12px; padding: 36px; box-shadow: var(--shadow);
+    }
+    .login-title { font-size: 18px; font-weight: 600; text-align: center; margin-bottom: 28px; color: var(--text); }
+    .form-input {
+      width: 100%; padding: 11px 14px; font-size: 14px;
+      background: var(--bg); border: 1px solid var(--border); border-radius: 8px;
+      color: var(--text); margin-bottom: 14px;
+    }
+    .form-input:focus { outline: none; border-color: var(--accent); }
+    .form-input::placeholder { color: var(--text-dim); }
+    .btn-submit {
+      width: 100%; padding: 11px; font-size: 14px; font-weight: 600;
+      background: var(--accent); color: white; border: none; border-radius: 8px; cursor: pointer;
+    }
+    .btn-submit:hover { background: var(--accent-hover); }
+    .error-msg { color: #dc2626; font-size: 13px; text-align: center; margin-top: 14px; }
+
+    .header-actions { display: flex; gap: 8px; flex-wrap: wrap; flex-shrink: 0; }
+
+    @media (max-width: 640px) {
+      .container { padding: 16px 14px; }
+      .metric-card { min-width: 110px; padding: 10px 12px; }
+      .metric-value { font-size: 16px; }
+      .theme-toggle { top: 12px; right: 12px; width: 36px; height: 36px; font-size: 16px; }
+      header { flex-wrap: wrap; gap: 12px; padding-right: 44px; }
+      .header-actions { gap: 6px; }
+      .header-actions .btn { padding: 8px 10px; font-size: 12px; min-height: 36px; }
+    }
+
+    /* Pull-to-refresh indicator */
+    .ptr-indicator {
+      text-align: center; overflow: hidden; height: 0;
+      transition: height 0.2s ease; color: var(--text-dim); font-size: 13px;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .ptr-spinner { display: inline-block; animation: ptr-spin 0.8s linear infinite; }
+    @keyframes ptr-spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body class="theme-light">
+  <button class="theme-toggle" id="themeToggle" title="Toggle theme">☀️</button>
+
+  <div class="container" id="app">
+    <div style="text-align:center;padding:60px;color:var(--text-dim)">Loading...</div>
+  </div>
+
+  <script>
+    function setTheme(dark) {
+      document.body.className = dark ? 'theme-dark' : 'theme-light';
+      document.getElementById('themeToggle').textContent = dark ? '🌙' : '☀️';
+      localStorage.setItem('dashboard-theme', dark ? 'dark' : 'light');
+    }
+
+    document.getElementById('themeToggle').addEventListener('click', () => {
+      setTheme(document.body.classList.contains('theme-light'));
+    });
+
+    const saved = localStorage.getItem('dashboard-theme');
+    if (saved) setTheme(saved === 'dark');
+    else if (window.matchMedia('(prefers-color-scheme: dark)').matches) setTheme(true);
+
+    const state = {
+      authenticated: ${isAuthenticated},
+      needsSetup: ${needsSetup},
+      hours: 24,
+      metrics: null,
+      records: [],
+      offset: 0,
+      loading: false,
+      hasMore: true,
+    };
+
+    const PAGE_SIZE = 50;
+
+    function fmt(n) {
+      if (n >= 1000000) return (n / 1000000).toFixed(1) + 'M';
+      if (n >= 1000) return (n / 1000).toFixed(1) + 'K';
+      return n.toString();
+    }
+
+    function fmtCost(c) {
+      if (c >= 1) return '$' + c.toFixed(2);
+      if (c >= 0.01) return '$' + c.toFixed(3);
+      return '$' + c.toFixed(4);
+    }
+
+    function fmtDuration(ms) {
+      if (!ms) return '-';
+      if (ms < 1000) return ms + 'ms';
+      return (ms / 1000).toFixed(1) + 's';
+    }
+
+    async function api(endpoint) {
+      const res = await fetch('/dashboard/api/' + endpoint, { credentials: 'include' });
+      if (res.status === 401) { state.authenticated = false; render(); throw new Error('Unauthorized'); }
+      return res.json();
+    }
+
+    async function loadMetrics() {
+      try {
+        state.metrics = await api('activity-metrics?hours=' + state.hours);
+      } catch (e) { console.error(e); }
+    }
+
+    async function loadRecords(append) {
+      if (state.loading) return;
+      state.loading = true;
+      render();
+      try {
+        const offset = append ? state.offset : 0;
+        const data = await api('recent?limit=' + PAGE_SIZE + '&offset=' + offset);
+        if (append) {
+          state.records = state.records.concat(data);
+        } else {
+          state.records = data;
+        }
+        state.offset = (append ? state.offset : 0) + data.length;
+        state.hasMore = data.length === PAGE_SIZE;
+      } catch (e) { console.error(e); }
+      state.loading = false;
+      render();
+    }
+
+    async function loadAll() {
+      state.offset = 0;
+      state.hasMore = true;
+      await Promise.all([loadMetrics(), loadRecords(false)]);
+      render();
+    }
+
+    function setHours(h) {
+      state.hours = h;
+      loadAll();
+    }
+
+    function renderActivity() {
+      const m = state.metrics || {};
+
+      return \`
+        <div id="ptr-indicator" class="ptr-indicator"></div>
+        <header>
+          <div class="logo"><a href="/dashboard">← Dashboard</a> / Activity</div>
+          <div class="header-actions">
+            <button class="btn" onclick="loadAll()">Refresh</button>
+          </div>
+        </header>
+
+        <div class="metrics-bar">
+          <div class="metric-card">
+            <div class="metric-label">📊 Total Calls</div>
+            <div class="metric-value">\${fmt(m.totalCalls || 0)}</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-label">💰 Total Cost</div>
+            <div class="metric-value">\${fmtCost(m.totalCost || 0)}</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-label">⏱️ Avg Response</div>
+            <div class="metric-value">\${fmtDuration(m.avgDurationMs)}</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-label">🏷️ Top Model</div>
+            <div class="metric-value" style="font-size:13px">\${m.topModel || '-'}</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-label">📈 Peak Hour</div>
+            <div class="metric-value">\${m.peakHour || '-'}</div>
+          </div>
+        </div>
+
+        <div class="filters">
+          \${[1, 6, 24, 168, 0].map(h => \`
+            <button class="btn \${state.hours === h ? 'active' : ''}" onclick="setHours(\${h})">
+              \${h === 0 ? 'All' : h === 168 ? '7d' : h + 'h'}
+            </button>
+          \`).join('')}
+        </div>
+
+        \${state.records.length === 0 && !state.loading ? '<div class="empty">No activity records</div>' : ''}
+
+        <div class="call-list">
+          \${state.records.map(r => \`
+            <div class="call-card">
+              <div class="call-top">
+                <span class="call-model">\${r.model}</span>
+                <span class="call-cost">\${fmtCost(r.cost || 0)}</span>
+              </div>
+              <div class="call-meta">
+                \${r.source ? '<span>🏷 ' + r.source + '</span>' : ''}
+                \${r.duration_ms ? '<span>⏱ ' + fmtDuration(r.duration_ms) + '</span>' : ''}
+                <span>📥 \${fmt(r.prompt_tokens)} in</span>
+                <span>📤 \${fmt(r.completion_tokens)} out</span>
+              </div>
+              <div class="call-time">\${r.timestamp?.slice(0, 16).replace('T', ' ') || ''}</div>
+            </div>
+          \`).join('')}
+        </div>
+
+        \${state.hasMore ? '<div class="load-more-wrap"><button class="btn-load" onclick="loadMore()" ' + (state.loading ? 'disabled' : '') + '>' + (state.loading ? 'Loading...' : 'Load More') + '</button></div>' : ''}
+      \`;
+    }
+
+    function renderLogin() {
+      return \`
+        <div class="login-wrap">
+          <div class="login-card">
+            <div class="login-title">\${state.needsSetup ? 'Set Password' : 'Dashboard Login'}</div>
+            <form id="loginForm">
+              <input type="password" class="form-input" id="password" placeholder="\${state.needsSetup ? 'Choose a password' : 'Enter password'}" autocomplete="current-password">
+              \${state.needsSetup ? '<input type="password" class="form-input" id="confirmPassword" placeholder="Confirm password">' : ''}
+              <button type="submit" class="btn-submit">\${state.needsSetup ? 'Set Password' : 'Login'}</button>
+              <div id="loginError" class="error-msg"></div>
+            </form>
+          </div>
+        </div>
+      \`;
+    }
+
+    function render() {
+      document.getElementById('app').innerHTML = state.authenticated ? renderActivity() : renderLogin();
+      if (!state.authenticated) setupLoginForm();
+    }
+
+    function setupLoginForm() {
+      const form = document.getElementById('loginForm');
+      if (!form) return;
+      form.onsubmit = async (e) => {
+        e.preventDefault();
+        const pw = document.getElementById('password').value;
+        const err = document.getElementById('loginError');
+        if (state.needsSetup) {
+          const confirm = document.getElementById('confirmPassword').value;
+          if (pw !== confirm) { err.textContent = 'Passwords do not match'; return; }
+          if (pw.length < 4) { err.textContent = 'Password too short'; return; }
+        }
+        try {
+          const res = await fetch('/dashboard/api/' + (state.needsSetup ? 'setup' : 'login'), {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ password: pw }),
+            credentials: 'include'
+          });
+          const data = await res.json();
+          if (data.success) { state.authenticated = true; state.needsSetup = false; loadAll(); }
+          else err.textContent = data.error || 'Login failed';
+        } catch (e) { err.textContent = 'Network error'; }
+      };
+    }
+
+    function loadMore() { loadRecords(true); }
+
+    if (state.authenticated) loadAll();
+    else render();
+
+    // === Pull-to-refresh for mobile ===
+    (function() {
+      let startY = 0, pulling = false, threshold = 60;
+      function getIndicator() { return document.getElementById('ptr-indicator'); }
+
+      document.addEventListener('touchstart', function(e) {
+        if (window.scrollY === 0 && state.authenticated) {
+          startY = e.touches[0].clientY;
+          pulling = true;
+        }
+      }, { passive: true });
+
+      document.addEventListener('touchmove', function(e) {
+        if (!pulling) return;
+        const el = getIndicator();
+        if (!el) return;
+        const dy = e.touches[0].clientY - startY;
+        if (dy > 0 && dy < 120) {
+          el.style.height = Math.min(dy * 0.6, 48) + 'px';
+          el.innerHTML = dy > threshold ? '↑ Release to refresh' : '↓ Pull to refresh';
+        }
+      }, { passive: true });
+
+      document.addEventListener('touchend', function() {
+        if (!pulling) return;
+        pulling = false;
+        const el = getIndicator();
+        if (!el) return;
+        const h = parseInt(el.style.height);
+        if (h >= 40) {
+          el.innerHTML = '<span class="ptr-spinner">↻</span> Refreshing...';
+          el.style.height = '48px';
+          loadAll().then(function() {
+            setTimeout(function() { if (el) el.style.height = '0'; }, 300);
+          });
+        } else {
+          el.style.height = '0';
+        }
+      }, { passive: true });
+    })();
+  </script>
+</body>
+</html>`
+}

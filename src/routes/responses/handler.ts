@@ -14,6 +14,7 @@ import { checkRateLimit } from '~/lib/rate-limit'
 import { ResponsesPayloadSchema } from '~/lib/schemas'
 import { state } from '~/lib/state'
 import { createCCToResponsesStreamState, translateCCResponseToResponses, translateCCStreamChunkToResponses, translateResponsesRequestToCC } from '~/lib/translation'
+import { logUsage, StreamingUsageAccumulator } from '~/lib/usage-tracker'
 import { validateBody } from '~/lib/validate'
 import { createChatCompletions } from '~/services/copilot/create-chat-completions'
 import { createResponses, summarizeResponsesPayload } from '~/services/copilot/create-responses'
@@ -64,28 +65,67 @@ export async function handleResponses(c: Context) {
 
 /** Direct path: model supports responses API */
 async function handleViaResponses(c: Context, payload: ResponsesPayload) {
+  const startTime = Date.now()
+  const clientIp = c.req.header('x-forwarded-for')?.split(',')[0]?.trim() || c.req.header('x-real-ip')
+  const userAgent = c.req.header('user-agent')
+
   const response = await createResponses(payload)
 
   if (isResponsesNonStreaming(response)) {
     if (consola.level >= 4) {
       consola.debug('Non-streaming responses:', JSON.stringify(response))
     }
+    // Log usage
+    if (response.usage) {
+      logUsage({
+        model: payload.model,
+        prompt_tokens: response.usage.input_tokens || 0,
+        completion_tokens: response.usage.output_tokens || 0,
+        total_tokens: (response.usage.input_tokens || 0) + (response.usage.output_tokens || 0),
+        endpoint: '/responses',
+        duration_ms: Date.now() - startTime,
+        client_ip: clientIp,
+        user_agent: userAgent,
+      })
+    }
     return c.json(response)
   }
 
   consola.debug('Streaming responses')
   return streamSSE(c, async (stream) => {
+    const usageAccumulator = new StreamingUsageAccumulator(
+      payload.model,
+      startTime,
+      '/responses',
+      clientIp,
+      userAgent,
+    )
+
     for await (const chunk of response) {
       if (consola.level >= 4) {
         consola.debug('Responses streaming chunk:', JSON.stringify(chunk))
       }
+      // Track usage from streaming
+      if (chunk.data && chunk.data !== '[DONE]') {
+        try {
+          const parsed = typeof chunk.data === 'string' ? JSON.parse(chunk.data) : chunk.data
+          usageAccumulator.updateFromResponsesEvent(parsed)
+        }
+        catch {}
+      }
       await stream.writeSSE(chunk as SSEMessage)
     }
+
+    usageAccumulator.finalize()
   })
 }
 
 /** Translation path: model only supports chat-completions, translate Responses ↔ CC */
 async function handleViaChatCompletions(c: Context, payload: ResponsesPayload) {
+  const startTime = Date.now()
+  const clientIp = c.req.header('x-forwarded-for')?.split(',')[0]?.trim() || c.req.header('x-real-ip')
+  const userAgent = c.req.header('user-agent')
+
   const ccPayload = translateResponsesRequestToCC(payload)
   if (consola.level >= 4) {
     consola.debug('Translated Responses→CC payload:', JSON.stringify(ccPayload).slice(-400))
@@ -97,6 +137,19 @@ async function handleViaChatCompletions(c: Context, payload: ResponsesPayload) {
     if (consola.level >= 4) {
       consola.debug('Non-streaming CC response (translated):', JSON.stringify(response))
     }
+    // Log usage
+    if (response.usage) {
+      logUsage({
+        model: payload.model,
+        prompt_tokens: response.usage.prompt_tokens,
+        completion_tokens: response.usage.completion_tokens,
+        total_tokens: response.usage.total_tokens,
+        endpoint: '/responses (via cc)',
+        duration_ms: Date.now() - startTime,
+        client_ip: clientIp,
+        user_agent: userAgent,
+      })
+    }
     const responsesResponse = translateCCResponseToResponses(response)
     return c.json(responsesResponse)
   }
@@ -105,6 +158,13 @@ async function handleViaChatCompletions(c: Context, payload: ResponsesPayload) {
   consola.debug('Streaming CC response (translated to Responses events)')
   return streamSSE(c, async (stream) => {
     const streamState = createCCToResponsesStreamState()
+    const usageAccumulator = new StreamingUsageAccumulator(
+      payload.model,
+      startTime,
+      '/responses (via cc)',
+      clientIp,
+      userAgent,
+    )
 
     for await (const rawEvent of response) {
       if (rawEvent.data === '[DONE]')
@@ -121,6 +181,9 @@ async function handleViaChatCompletions(c: Context, payload: ResponsesPayload) {
         continue
       }
 
+      // Track usage
+      usageAccumulator.updateFromCCChunk(chunk)
+
       const responsesEvents = translateCCStreamChunkToResponses(chunk, streamState)
       for (const evt of responsesEvents) {
         await stream.writeSSE({
@@ -129,6 +192,8 @@ async function handleViaChatCompletions(c: Context, payload: ResponsesPayload) {
         })
       }
     }
+
+    usageAccumulator.finalize()
   })
 }
 

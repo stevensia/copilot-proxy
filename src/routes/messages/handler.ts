@@ -17,6 +17,7 @@ import { AnthropicMessagesPayloadSchema } from '~/lib/schemas'
 import { state } from '~/lib/state'
 import { createAnthropicFromResponsesStreamState, translateAnthropicRequestToResponses, translateResponsesResponseToAnthropic, translateResponsesStreamEventToAnthropic } from '~/lib/translation'
 import { assertCopilotCompatibleAnthropicRequest } from '~/lib/translation/anthropic-compat'
+import { logUsage, StreamingUsageAccumulator } from '~/lib/usage-tracker'
 import { isNullish } from '~/lib/utils'
 import { validateBody } from '~/lib/validate'
 import {
@@ -121,6 +122,10 @@ async function handleViaChatCompletions(
   anthropicPayload: AnthropicMessagesPayload,
   anthropicBeta: string | undefined,
 ) {
+  const startTime = Date.now()
+  const clientIp = c.req.header('x-forwarded-for')?.split(',')[0]?.trim() || c.req.header('x-real-ip')
+  const userAgent = c.req.header('user-agent')
+
   const openAIPayload = translateToOpenAI(anthropicPayload, { anthropicBeta })
   const clientRequestedStreaming = anthropicPayload.stream === true
   const upstreamPayload = clientRequestedStreaming
@@ -138,6 +143,19 @@ async function handleViaChatCompletions(
   if (isCCNonStreaming(response)) {
     if (consola.level >= 4) {
       consola.debug('Non-streaming response from Copilot:', JSON.stringify(response).slice(-400))
+    }
+    // Log usage
+    if (response.usage) {
+      logUsage({
+        model: openAIPayload.model,
+        prompt_tokens: response.usage.prompt_tokens,
+        completion_tokens: response.usage.completion_tokens,
+        total_tokens: response.usage.total_tokens,
+        endpoint: '/v1/messages',
+        duration_ms: Date.now() - startTime,
+        client_ip: clientIp,
+        user_agent: userAgent,
+      })
     }
     assertAnthropicMessageCanComplete(response)
     const anthropicResponse = translateToAnthropic(response)
@@ -227,6 +245,13 @@ async function handleViaChatCompletions(
       hasNonThinkingContent: false,
       toolCalls: {},
     }
+    const usageAccumulator = new StreamingUsageAccumulator(
+      openAIPayload.model,
+      startTime,
+      '/v1/messages',
+      clientIp,
+      userAgent,
+    )
 
     try {
       for await (const rawEvent of response) {
@@ -252,6 +277,9 @@ async function handleViaChatCompletions(
           )
           return
         }
+
+        // Track usage from streaming chunks
+        usageAccumulator.updateFromCCChunk(chunk)
 
         const events = translateChunkToAnthropicEvents(chunk, streamState)
 
@@ -304,6 +332,7 @@ async function handleViaChatCompletions(
       await anthropicWriter.writeEvent(translateErrorToAnthropicErrorEvent(message))
     }
     finally {
+      usageAccumulator.finalize()
       await anthropicWriter.close()
     }
   })
@@ -315,6 +344,10 @@ async function handleViaResponses(
   anthropicPayload: AnthropicMessagesPayload,
   effectiveModel: string,
 ) {
+  const startTime = Date.now()
+  const clientIp = c.req.header('x-forwarded-for')?.split(',')[0]?.trim() || c.req.header('x-real-ip')
+  const userAgent = c.req.header('user-agent')
+
   const responsesPayload = translateAnthropicRequestToResponses(anthropicPayload, { model: effectiveModel })
   if (consola.level >= 4) {
     consola.debug('Translated Anthropic→Responses payload:', JSON.stringify(responsesPayload).slice(-400))
@@ -325,6 +358,19 @@ async function handleViaResponses(
   if (isResponsesNonStreaming(response)) {
     if (consola.level >= 4) {
       consola.debug('Non-streaming responses (Anthropic path):', JSON.stringify(response))
+    }
+    // Log usage
+    if (response.usage) {
+      logUsage({
+        model: effectiveModel,
+        prompt_tokens: response.usage.input_tokens || 0,
+        completion_tokens: response.usage.output_tokens || 0,
+        total_tokens: (response.usage.input_tokens || 0) + (response.usage.output_tokens || 0),
+        endpoint: '/v1/messages (via responses)',
+        duration_ms: Date.now() - startTime,
+        client_ip: clientIp,
+        user_agent: userAgent,
+      })
     }
     const anthropicResponse = translateResponsesResponseToAnthropic(response)
     if (consola.level >= 4) {
@@ -338,6 +384,13 @@ async function handleViaResponses(
   return streamSSE(c, async (stream) => {
     const anthropicWriter = createAnthropicSSEWriter(stream)
     const streamState = createAnthropicFromResponsesStreamState()
+    const usageAccumulator = new StreamingUsageAccumulator(
+      effectiveModel,
+      startTime,
+      '/v1/messages (via responses)',
+      clientIp,
+      userAgent,
+    )
 
     try {
       for await (const rawEvent of response) {
@@ -357,6 +410,9 @@ async function handleViaResponses(
           )
           return
         }
+
+        // Track usage from responses stream
+        usageAccumulator.updateFromResponsesEvent(event)
 
         const anthropicEvents = translateResponsesStreamEventToAnthropic(event, streamState)
         for (const evt of anthropicEvents) {
@@ -403,6 +459,7 @@ async function handleViaResponses(
       await anthropicWriter.writeEvent(translateErrorToAnthropicErrorEvent(message))
     }
     finally {
+      usageAccumulator.finalize()
       await anthropicWriter.close()
     }
   })

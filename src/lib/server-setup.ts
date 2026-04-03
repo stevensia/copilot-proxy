@@ -5,6 +5,7 @@ import { ensurePaths } from '~/lib/paths'
 import { initializeNodeHttpClient } from '~/lib/proxy'
 import { state } from '~/lib/state'
 import { setupCopilotToken, setupGitHubToken } from '~/lib/token'
+import { startUsageSync } from '~/lib/usage-sync'
 import { cacheModels, cacheVSCodeVersion } from '~/lib/utils'
 
 /**
@@ -51,4 +52,7 @@ export async function initializeServer(options: RunServerOptions): Promise<void>
   consola.info(
     `Available models: \n${state.models?.data.map(model => `- ${model.id}`).join('\n')}`,
   )
+
+  // Start usage sync timer (if configured and enabled)
+  startUsageSync()
 }
